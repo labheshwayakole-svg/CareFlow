@@ -12,14 +12,18 @@ interface AppointmentRepository {
         patientName: String,
         patientPhone: String,
         doctor: Doctor,
+        hospitalId: String,
         date: String,
         timeSlot: String,
-        notes: String
+        symptoms: String = "",
+        estimatedTime: String = ""
     ): Resource<Appointment>
 
     fun observeAppointmentsForPatient(patientId: String): Flow<List<Appointment>>
     fun observeAppointmentsForDoctor(doctorId: String, date: String): Flow<List<Appointment>>
+    fun observeAppointmentsForHospital(hospitalId: String, date: String? = null): Flow<List<Appointment>>
     fun observeAllAppointments(): Flow<List<Appointment>>
     suspend fun cancelAppointment(appointmentId: String): Resource<Unit>
     suspend fun updateAppointmentStatus(appointmentId: String, status: AppointmentStatus, doctorNotes: String = ""): Resource<Unit>
+    suspend fun markReminderSent(appointmentId: String, is1Hr: Boolean): Resource<Unit>
 }

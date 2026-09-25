@@ -2,29 +2,52 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users collection (Patients, Doctors, Admins)
-    match /users/{userId} {
-      allow read, write: if true;
+    function isAuthenticated() {
+      return request.auth != null;
     }
 
-    // Departments collection (Cardiology, Orthopedics, Pediatrics, etc.)
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Hospitals: Anyone can read, authenticated admin can manage
+    match /hospitals/{hospitalId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Departments: Anyone can read (OPD public directory)
     match /departments/{deptId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
-    // Doctors directory
+    // Doctors: Anyone can read public availability & OPD status
     match /doctors/{doctorId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
-    // Appointments collection (Tokens, bookings, consultation status)
+    // Users: Profiles
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Appointments: Token bookings, consultation status
     match /appointments/{appointmentId} {
-      allow read, write: if true;
+      allow read, write: if isAuthenticated();
     }
 
-    // Daily queues collection (Real-time live queue counter & turn tracker)
+    // Daily Queues: Live token counter, turn tracker, break notices
     match /daily_queues/{queueId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Notifications: 1-hour, 30-min reminders, call alerts, break notices
+    match /notifications/{notificationId} {
+      allow read, write: if isAuthenticated();
     }
   }
 }

@@ -10,7 +10,7 @@ import com.example.careflow.domain.model.AppointmentStatus
 import com.example.careflow.domain.model.Doctor
 import com.example.careflow.domain.repository.AppointmentRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 
 class AppointmentRepositoryImpl(
@@ -24,9 +24,11 @@ class AppointmentRepositoryImpl(
         patientName: String,
         patientPhone: String,
         doctor: Doctor,
+        hospitalId: String,
         date: String,
         timeSlot: String,
-        notes: String
+        symptoms: String,
+        estimatedTime: String
     ): Resource<Appointment> = withContext(dispatchers.io) {
         try {
             // Attempt Firestore transaction first
@@ -36,13 +38,15 @@ class AppointmentRepositoryImpl(
                     patientName = patientName,
                     patientPhone = patientPhone,
                     doctor = doctor,
+                    hospitalId = hospitalId,
                     date = date,
                     timeSlot = timeSlot,
-                    notes = notes
+                    symptoms = symptoms,
+                    estimatedTime = estimatedTime
                 )
                 // Mirror to local data store
                 dataStore.bookAppointmentAtomic(
-                    patientId, patientName, patientPhone, doctor, date, timeSlot, notes
+                    patientId, patientName, patientPhone, doctor, date, timeSlot, symptoms
                 )
                 return@withContext Resource.Success(apt)
             } catch (_: Exception) {
@@ -54,7 +58,7 @@ class AppointmentRepositoryImpl(
                     doctor = doctor,
                     date = date,
                     timeSlot = timeSlot,
-                    notes = notes
+                    notes = symptoms
                 )
                 Resource.Success(apt)
             }
@@ -63,19 +67,17 @@ class AppointmentRepositoryImpl(
         }
     }
 
-    override fun observeAppointmentsForPatient(patientId: String): Flow<List<Appointment>> {
-        return dataStore.appointments.map { list ->
-            list.filter { it.patientId == patientId }
-        }
-    }
+    override fun observeAppointmentsForPatient(patientId: String): Flow<List<Appointment>> =
+        firebaseDataSource.observeAppointmentsForPatient(patientId).flowOn(dispatchers.io)
 
-    override fun observeAppointmentsForDoctor(doctorId: String, date: String): Flow<List<Appointment>> {
-        return dataStore.appointments.map { list ->
-            list.filter { it.doctorId == doctorId && (date.isBlank() || it.date == date) }
-        }
-    }
+    override fun observeAppointmentsForDoctor(doctorId: String, date: String): Flow<List<Appointment>> =
+        firebaseDataSource.observeAppointmentsForDoctor(doctorId, date).flowOn(dispatchers.io)
 
-    override fun observeAllAppointments(): Flow<List<Appointment>> = dataStore.appointments
+    override fun observeAppointmentsForHospital(hospitalId: String, date: String?): Flow<List<Appointment>> =
+        firebaseDataSource.observeAppointmentsForHospital(hospitalId, date).flowOn(dispatchers.io)
+
+    override fun observeAllAppointments(): Flow<List<Appointment>> =
+        firebaseDataSource.observeAllAppointments().flowOn(dispatchers.io)
 
     override suspend fun cancelAppointment(appointmentId: String): Resource<Unit> = withContext(dispatchers.io) {
         try {
@@ -95,5 +97,14 @@ class AppointmentRepositoryImpl(
         } catch (_: Exception) {}
         dataStore.updateAppointmentStatus(appointmentId, status, doctorNotes)
         Resource.Success(Unit)
+    }
+
+    override suspend fun markReminderSent(appointmentId: String, is1Hr: Boolean): Resource<Unit> = withContext(dispatchers.io) {
+        try {
+            firebaseDataSource.markReminderSent(appointmentId, is1Hr)
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            Resource.Error(e.message ?: "Failed to mark reminder sent", e)
+        }
     }
 }

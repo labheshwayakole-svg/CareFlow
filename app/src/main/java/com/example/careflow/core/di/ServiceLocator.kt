@@ -7,10 +7,14 @@ import com.example.careflow.data.firebase.FirebaseDataSource
 import com.example.careflow.data.repository.AppointmentRepositoryImpl
 import com.example.careflow.data.repository.AuthRepositoryImpl
 import com.example.careflow.data.repository.DoctorRepositoryImpl
+import com.example.careflow.data.repository.HospitalRepositoryImpl
+import com.example.careflow.data.repository.NotificationRepositoryImpl
 import com.example.careflow.data.repository.QueueRepositoryImpl
 import com.example.careflow.domain.repository.AppointmentRepository
 import com.example.careflow.domain.repository.AuthRepository
 import com.example.careflow.domain.repository.DoctorRepository
+import com.example.careflow.domain.repository.HospitalRepository
+import com.example.careflow.domain.repository.NotificationRepository
 import com.example.careflow.domain.repository.QueueRepository
 import com.example.careflow.domain.usecase.AdvanceQueueUseCase
 import com.example.careflow.domain.usecase.BookAppointmentUseCase
@@ -39,9 +43,24 @@ object ServiceLocator {
         )
     }
 
+    val hospitalRepository: HospitalRepository by lazy {
+        HospitalRepositoryImpl(
+            firebaseDataSource = firebaseDataSource,
+            dispatchers = dispatcherProvider
+        )
+    }
+
+    val notificationRepository: NotificationRepository by lazy {
+        NotificationRepositoryImpl(
+            firebaseDataSource = firebaseDataSource,
+            dispatchers = dispatcherProvider
+        )
+    }
+
     val doctorRepository: DoctorRepository by lazy {
         DoctorRepositoryImpl(
             dataStore = inMemoryDataStore,
+            firebaseDataSource = firebaseDataSource,
             dispatchers = dispatcherProvider
         )
     }

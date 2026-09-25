@@ -19,14 +19,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +48,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.careflow.domain.model.Doctor
 import com.example.careflow.presentation.components.TokenBadge
+import com.example.careflow.theme.QueueActiveGreen
+import com.example.careflow.theme.QueueWaitingAmber
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -55,7 +58,7 @@ import java.util.Locale
 fun DoctorBookingScreen(
     doctor: Doctor,
     uiState: PatientUiState,
-    onBookClick: (String, String, String) -> Unit,
+    onBookClick: (String, String, String, String) -> Unit,
     onTrackQueueClick: () -> Unit,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -63,9 +66,9 @@ fun DoctorBookingScreen(
     val todayFormatted = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()) }
     var selectedDate by remember { mutableStateOf(todayFormatted) }
     var selectedSlot by remember { mutableStateOf("10:00 AM") }
-    var notes by remember { mutableStateOf("") }
+    var symptoms by remember { mutableStateOf("") }
 
-    val slots = listOf("09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM", "12:00 PM", "12:30 PM")
+    val slots = listOf("09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM", "12:00 PM", "12:30 PM", "01:00 PM", "01:30 PM")
     val scrollState = rememberScrollState()
 
     Column(
@@ -77,11 +80,11 @@ fun DoctorBookingScreen(
         // Top Bar
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBackClick) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Book Appointment",
+                text = "Book OPD Appointment",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
@@ -95,23 +98,56 @@ fun DoctorBookingScreen(
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
         ) {
-            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(60.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp))
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(34.dp))
+                    }
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(text = doctor.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(text = "${doctor.specialization} • ${doctor.departmentName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                        Text(text = "${doctor.qualification} • ${doctor.experienceYears} yrs experience", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+
+                    // Live Presence Pill
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = when {
+                            doctor.isOnBreak -> QueueWaitingAmber.copy(alpha = 0.2f)
+                            doctor.isInOPD -> QueueActiveGreen.copy(alpha = 0.2f)
+                            else -> Color.Gray.copy(alpha = 0.15f)
+                        }
+                    ) {
+                        Text(
+                            text = when {
+                                doctor.isOnBreak -> "ON BREAK"
+                                doctor.isInOPD -> "IN OPD"
+                                else -> "OFFLINE"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = when {
+                                doctor.isOnBreak -> QueueWaitingAmber
+                                doctor.isInOPD -> QueueActiveGreen
+                                else -> Color.DarkGray
+                            },
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.width(16.dp))
-                Column {
-                    Text(text = doctor.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text(text = doctor.specialization, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                    Text(text = doctor.qualification, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = "Fee: ₹${doctor.consultationFee.toInt()} • ~${doctor.avgConsultationMinutes}m/patient", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(text = "🕒 Shift: ${doctor.shiftStartTime} - ${doctor.shiftEndTime}", style = MaterialTheme.typography.bodySmall)
+                    Text(text = "Fee: ₹${doctor.consultationFee.toInt()}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -119,7 +155,7 @@ fun DoctorBookingScreen(
         Spacer(modifier = Modifier.height(20.dp))
 
         if (uiState.lastBookedAppointment != null) {
-            // Success Card
+            // Success Card with Token
             val apt = uiState.lastBookedAppointment
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -138,33 +174,88 @@ fun DoctorBookingScreen(
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = "Appointment Confirmed!",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
+                        text = "Slot Confirmed!",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Date: ${apt.date} • Slot: ${apt.timeSlot}",
-                        style = MaterialTheme.typography.bodyMedium
+                        text = "Your appointment with Dr. ${apt.doctorName} is booked for ${apt.date} at ${apt.timeSlot}.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
 
-                    Spacer(modifier = Modifier.height(16.dp))
-                    TokenBadge(tokenNumber = apt.tokenNumber, isHighlighted = true, label = "YOUR QUEUE TOKEN")
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    TokenBadge(
+                        tokenNumber = apt.tokenNumber,
+                        label = "YOUR TOKEN NUMBER",
+                        isHighlighted = true
+                    )
+
+                    Spacer(modifier = Modifier.height(18.dp))
 
                     Button(
                         onClick = onTrackQueueClick,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
-                        Text("Track Live Queue Now ⚡", fontWeight = FontWeight.Bold)
+                        Text("Track Queue Position Live", fontWeight = FontWeight.Bold)
                     }
                 }
             }
         } else {
-            // Select Date & Time Slot
-            Text(text = "Select Time Slot", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(10.dp))
+            // Date Picker Header
+            Text(
+                text = "Appointment Date",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Today ($selectedDate)",
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                    ) {
+                        Text(
+                            text = "OPD Open Today",
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // Time Slots
+            Text(
+                text = "Select Time Slot",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 slots.chunked(3).forEach { rowSlots ->
@@ -173,72 +264,74 @@ fun DoctorBookingScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         rowSlots.forEach { slot ->
-                            val isSelected = selectedSlot == slot
-                            Box(
+                            val isSelected = slot == selectedSlot
+                            Surface(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(
-                                        if (isSelected) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.surface
-                                    )
-                                    .border(
-                                        width = 1.dp,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                                        shape = RoundedCornerShape(12.dp)
-                                    )
                                     .clickable { selectedSlot = slot }
-                                    .padding(vertical = 12.dp),
-                                contentAlignment = Alignment.Center
+                                    .border(
+                                        width = if (isSelected) 2.dp else 1.dp,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                                        shape = RoundedCornerShape(10.dp)
+                                    ),
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
                             ) {
-                                Text(
-                                    text = slot,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
-                                )
+                                Box(
+                                    modifier = Modifier.padding(vertical = 12.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = slot,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
-            // Reason for Visit Notes
-            OutlinedTextField(
-                value = notes,
-                onValueChange = { notes = it },
-                label = { Text("Symptoms / Reason for Consultation (Optional)") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                maxLines = 3
+            // Patient Symptoms Input
+            Text(
+                text = "Describe Symptoms / Health Problem",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
             )
+            Spacer(modifier = Modifier.height(6.dp))
 
-            if (uiState.errorMessage != null) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = uiState.errorMessage,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
+            OutlinedTextField(
+                value = symptoms,
+                onValueChange = { symptoms = it },
+                placeholder = { Text("e.g. Chest pain for 2 days, mild fever, headache...") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3,
+                shape = RoundedCornerShape(12.dp)
+            )
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Confirm Booking Button
             Button(
-                onClick = { onBookClick(selectedDate, selectedSlot, notes) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
+                onClick = {
+                    onBookClick(selectedDate, selectedSlot, symptoms, symptoms)
+                },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(14.dp),
-                enabled = !uiState.isLoading
+                enabled = !uiState.isLoading && doctor.isAvailable
             ) {
                 if (uiState.isLoading) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
                 } else {
-                    Text("Confirm Booking & Issue Token", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(
+                        text = "Confirm Slot & Get Token",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
                 }
             }
         }

@@ -134,7 +134,7 @@ class AuthRepositoryImpl(
             onAutoVerified = { credential ->
                 kotlinx.coroutines.CoroutineScope(dispatchers.io).launch {
                     val res = firebaseDataSource.signInWithPhoneCredential(credential, "", UserRole.PATIENT)
-                    if (res is Resource.Success) {
+                    if (res is Resource.Success<User>) {
                         _currentUserFlow.value = res.data
                         withContext(dispatchers.main) {
                             onAutoVerified(res.data)
@@ -153,7 +153,7 @@ class AuthRepositoryImpl(
         role: UserRole
     ): Resource<User> = withContext(dispatchers.io) {
         val res = firebaseDataSource.signInWithPhoneCode(verificationId, code, name, role)
-        if (res is Resource.Success) {
+        if (res is Resource.Success<User>) {
             _currentUserFlow.value = res.data
             return@withContext res
         }
@@ -173,6 +173,19 @@ class AuthRepositoryImpl(
         }
 
         res
+    }
+
+    override suspend fun updateSelectedHospital(hospitalId: String): Resource<Unit> = withContext(dispatchers.io) {
+        val current = _currentUserFlow.value
+        if (current != null) {
+            val updated = current.copy(selectedHospitalId = hospitalId)
+            _currentUserFlow.value = updated
+            dataStore.setCurrentUser(updated)
+            try {
+                firebaseDataSource.updateUserSelectedHospital(current.id, hospitalId)
+            } catch (_: Exception) {}
+        }
+        Resource.Success(Unit)
     }
 
     override suspend fun logout(): Resource<Unit> = withContext(dispatchers.io) {

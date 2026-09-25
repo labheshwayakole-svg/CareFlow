@@ -4,6 +4,8 @@ import androidx.compose.runtime.Immutable
 
 enum class AppointmentStatus {
     BOOKED,
+    WAITING,
+    CALLED,
     IN_CONSULTATION,
     COMPLETED,
     CANCELLED,
@@ -18,12 +20,21 @@ data class Appointment(
     val patientPhone: String,
     val doctorId: String,
     val doctorName: String,
+    val hospitalId: String = "",
+    val departmentId: String = "",
     val departmentName: String,
     val date: String, // Format: YYYY-MM-DD
     val timeSlot: String,
+    val estimatedTime: String = "",
     val tokenNumber: Int,
     val status: AppointmentStatus = AppointmentStatus.BOOKED,
+    val symptoms: String = "",
+    val notes: String = symptoms,
+    val doctorNotes: String = "",
+    val calledAt: Long? = null,
+    val completedAt: Long? = null,
     val bookedAt: Long = System.currentTimeMillis(),
-    val notes: String = "",
-    val doctorNotes: String = ""
+    val reminder1hrSent: Boolean = false,
+    val reminder30minSent: Boolean = false,
+    val updatedAt: Long = System.currentTimeMillis()
 )

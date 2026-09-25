@@ -105,6 +105,8 @@ fun StatusChip(
 ) {
     val (bgColor, textColor, text) = when (status) {
         AppointmentStatus.BOOKED -> Triple(QueueWaitingAmber.copy(alpha = 0.2f), QueueWaitingAmber, "BOOKED")
+        AppointmentStatus.WAITING -> Triple(QueueWaitingAmber.copy(alpha = 0.2f), QueueWaitingAmber, "WAITING")
+        AppointmentStatus.CALLED -> Triple(QueueServingCyan.copy(alpha = 0.25f), QueueServingCyan, "CALLED")
         AppointmentStatus.IN_CONSULTATION -> Triple(QueueServingCyan.copy(alpha = 0.2f), QueueServingCyan, "IN CONSULTATION")
         AppointmentStatus.COMPLETED -> Triple(QueueActiveGreen.copy(alpha = 0.2f), QueueActiveGreen, "COMPLETED")
         AppointmentStatus.CANCELLED -> Triple(QueueCancelledRed.copy(alpha = 0.2f), QueueCancelledRed, "CANCELLED")

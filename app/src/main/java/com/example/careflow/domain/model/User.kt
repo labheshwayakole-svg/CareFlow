@@ -15,5 +15,10 @@ data class User(
     val email: String,
     val phone: String,
     val role: UserRole,
-    val createdAt: Long = System.currentTimeMillis()
+    val hospitalId: String? = null,
+    val selectedHospitalId: String? = null,
+    val profileImageUrl: String = "",
+    val fcmToken: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis()
 )

@@ -116,7 +116,9 @@ fun MainNavigation(
                                 is PatientScreenDestination.Home -> {
                                     PatientHomeScreen(
                                         uiState = patientState,
+                                        onSelectHospital = { hosp -> patientViewModel.selectHospital(hosp) },
                                         onSelectDepartment = { deptId -> patientViewModel.selectDepartment(deptId) },
+                                        onToggleFilterInOpd = { patientViewModel.toggleFilterOnlyInOpd() },
                                         onSearchQueryChange = { query -> patientViewModel.setSearchQuery(query) },
                                         onSelectDoctorForBooking = { doc ->
                                             patientViewModel.selectDoctor(doc)
@@ -128,6 +130,12 @@ fun MainNavigation(
                                         onOpenMyAppointments = {
                                             patientDestination = PatientScreenDestination.MyAppointments
                                         },
+                                        onMarkNotificationRead = { notifId ->
+                                            patientViewModel.markNotificationAsRead(notifId)
+                                        },
+                                        onMarkAllNotificationsRead = {
+                                            patientViewModel.markAllNotificationsAsRead()
+                                        },
                                         onLogoutClick = {
                                             authViewModel.logout()
                                             patientDestination = PatientScreenDestination.Home
@@ -138,8 +146,8 @@ fun MainNavigation(
                                     DoctorBookingScreen(
                                         doctor = destination.doctor,
                                         uiState = patientState,
-                                        onBookClick = { date, slot, notes ->
-                                            patientViewModel.bookAppointment(date, slot, notes)
+                                        onBookClick = { date, slot, notes, symptoms ->
+                                            patientViewModel.bookAppointment(date, slot, notes, symptoms)
                                         },
                                         onTrackQueueClick = {
                                             patientDestination = PatientScreenDestination.QueueTracker
@@ -180,27 +188,38 @@ fun MainNavigation(
                         DoctorDashboardScreen(
                             uiState = doctorState,
                             onCallNextPatient = { doctorViewModel.callNextPatient() },
+                            onCallSpecificPatient = { apt -> doctorViewModel.callSpecificPatient(apt) },
                             onCompleteConsultation = { notes -> doctorViewModel.completeCurrentConsultation(notes) },
                             onMarkNoShow = { doctorViewModel.markCurrentNoShow() },
+                            onToggleOpdPresence = { isInOpd -> doctorViewModel.toggleOpdPresence(isInOpd) },
+                            onToggleBreakMode = { onBreak, msg -> doctorViewModel.toggleBreakMode(onBreak, msg) },
                             onToggleAvailability = { isAvailable -> doctorViewModel.toggleAvailability(isAvailable) },
                             onResetQueue = { doctorViewModel.resetQueue() },
-                            onLogoutClick = { authViewModel.logout() }
+                            onLogoutClick = { authViewModel.logout() },
+                            onClearMessages = { doctorViewModel.clearMessages() }
                         )
                     }
 
                     UserRole.ADMIN -> {
                         AdminDashboardScreen(
                             uiState = adminState,
+                            onSaveHospital = { name, opd, addr, city, phone ->
+                                adminViewModel.saveHospitalDetails(name, opd, addr, city, phone)
+                            },
                             onToggleDoctorAvailability = { docId, cur ->
                                 adminViewModel.toggleDoctorAvailability(docId, cur)
                             },
-                            onAddDoctor = { name, spec, deptId, deptName, qual, fee, start, end ->
-                                adminViewModel.addDoctor(name, spec, deptId, deptName, qual, fee, start, end)
+                            onAddDoctor = { name, spec, deptId, deptName, qual, exp, fee, start, end, tokens ->
+                                adminViewModel.addDoctorWithCredentials(
+                                    name, spec, deptId, deptName, qual, exp, fee, start, end, tokens
+                                )
                             },
-                            onAddDepartment = { name, desc ->
-                                adminViewModel.addDepartment(name, desc)
+                            onAddDepartment = { name, desc, icon ->
+                                adminViewModel.addDepartment(name, desc, icon)
                             },
-                            onLogoutClick = { authViewModel.logout() }
+                            onDismissCredentials = { adminViewModel.dismissCredentialsDialog() },
+                            onLogoutClick = { authViewModel.logout() },
+                            onClearMessages = { adminViewModel.clearMessages() }
                         )
                     }
                 }

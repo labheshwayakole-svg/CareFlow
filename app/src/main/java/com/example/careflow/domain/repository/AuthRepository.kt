@@ -27,6 +27,7 @@ interface AuthRepository {
         onError: (String) -> Unit
     )
     suspend fun signInWithPhoneCode(verificationId: String, code: String, name: String, role: UserRole): Resource<User>
+    suspend fun updateSelectedHospital(hospitalId: String): Resource<Unit>
     suspend fun logout(): Resource<Unit>
     suspend fun switchDemoUser(role: UserRole): Resource<User>
 }

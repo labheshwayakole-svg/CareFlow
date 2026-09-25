@@ -13,9 +13,12 @@ class BookAppointmentUseCase(
         patientName: String,
         patientPhone: String,
         doctor: Doctor,
+        hospitalId: String = doctor.hospitalId,
         date: String,
         timeSlot: String,
-        notes: String
+        notes: String = "",
+        symptoms: String = notes,
+        estimatedTime: String = ""
     ): Resource<Appointment> {
         if (patientName.isBlank()) {
             return Resource.Error("Patient name is required.")
@@ -38,9 +41,11 @@ class BookAppointmentUseCase(
             patientName = patientName,
             patientPhone = patientPhone,
             doctor = doctor,
+            hospitalId = hospitalId.ifBlank { doctor.hospitalId },
             date = date,
             timeSlot = timeSlot,
-            notes = notes
+            symptoms = symptoms.ifBlank { notes },
+            estimatedTime = estimatedTime
         )
     }
 }

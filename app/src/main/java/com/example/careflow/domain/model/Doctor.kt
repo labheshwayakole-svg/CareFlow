@@ -6,6 +6,7 @@ import androidx.compose.runtime.Immutable
 data class Doctor(
     val id: String,
     val userId: String,
+    val hospitalId: String = "",
     val name: String,
     val specialization: String,
     val departmentId: String,
@@ -19,7 +20,15 @@ data class Doctor(
     val shiftEndTime: String = "02:00 PM",
     val maxTokensPerDay: Int = 25,
     val isAvailable: Boolean = true,
+    val isInOPD: Boolean = false,
+    val isOnBreak: Boolean = false,
+    val breakStartedAt: Long? = null,
     val rating: Double = 4.8,
-    val totalReviews: Int = 120,
-    val photoUrl: String = ""
+    val totalReviews: Int = 0,
+    val photoUrl: String = "",
+    val loginEmail: String = "",
+    val passwordChanged: Boolean = false,
+    val fcmToken: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis()
 )

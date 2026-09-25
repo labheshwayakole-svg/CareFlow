@@ -9,7 +9,7 @@ import com.example.careflow.domain.model.DailyQueue
 import com.example.careflow.domain.model.QueueStatus
 import com.example.careflow.domain.repository.QueueRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 
 class QueueRepositoryImpl(
@@ -18,46 +18,52 @@ class QueueRepositoryImpl(
     private val dispatchers: DispatcherProvider = DefaultDispatcherProvider()
 ) : QueueRepository {
 
-    override fun observeLiveQueue(doctorId: String, date: String): Flow<DailyQueue?> {
-        val key = "${doctorId}_$date"
-        return dataStore.queues.map { map ->
-            map[key]
-        }
-    }
+    override fun observeLiveQueue(doctorId: String, date: String): Flow<DailyQueue?> =
+        firebaseDataSource.observeLiveQueue(doctorId, date).flowOn(dispatchers.io)
 
-    override fun observeAllActiveQueues(): Flow<List<DailyQueue>> {
-        return dataStore.queues.map { it.values.toList() }
-    }
+    override fun observeAllActiveQueues(hospitalId: String?): Flow<List<DailyQueue>> =
+        firebaseDataSource.observeAllActiveQueues(hospitalId).flowOn(dispatchers.io)
 
     override suspend fun getOrCreateQueue(
         doctorId: String,
         doctorName: String,
+        hospitalId: String,
         date: String
     ): Resource<DailyQueue> = withContext(dispatchers.io) {
-        val key = "${doctorId}_$date"
-        val existing = dataStore.queues.value[key]
-        if (existing != null) {
-            Resource.Success(existing)
-        } else {
-            val newQueue = DailyQueue(
-                queueId = key,
-                doctorId = doctorId,
-                doctorName = doctorName,
-                date = date,
-                currentToken = 0,
-                totalTokensIssued = 0,
-                status = QueueStatus.ACTIVE
-            )
-            val map = dataStore.queues.value.toMutableMap()
-            map[key] = newQueue
-            Resource.Success(newQueue)
+        try {
+            val queue = firebaseDataSource.getOrCreateQueue(doctorId, doctorName, hospitalId, date)
+            Resource.Success(queue)
+        } catch (e: Exception) {
+            val key = "${doctorId}_$date"
+            val existing = dataStore.queues.value[key]
+            if (existing != null) {
+                Resource.Success(existing)
+            } else {
+                val newQueue = DailyQueue(
+                    queueId = key,
+                    doctorId = doctorId,
+                    doctorName = doctorName,
+                    hospitalId = hospitalId,
+                    date = date,
+                    currentToken = 0,
+                    totalTokensIssued = 0,
+                    status = QueueStatus.ACTIVE
+                )
+                val map = dataStore.queues.value.toMutableMap()
+                map[key] = newQueue
+                Resource.Success(newQueue)
+            }
         }
     }
 
-    override suspend fun advanceQueue(doctorId: String, date: String): Resource<DailyQueue> = withContext(dispatchers.io) {
+    override suspend fun advanceQueue(
+        doctorId: String,
+        date: String,
+        nextPatientId: String?
+    ): Resource<DailyQueue> = withContext(dispatchers.io) {
         try {
             try {
-                val updated = firebaseDataSource.advanceQueueAtomic(doctorId, date)
+                val updated = firebaseDataSource.advanceQueueAtomic(doctorId, date, nextPatientId)
                 dataStore.advanceQueueAtomic(doctorId, date)
                 return@withContext Resource.Success(updated)
             } catch (_: Exception) {
@@ -69,17 +75,70 @@ class QueueRepositoryImpl(
         }
     }
 
+    override suspend fun callPatient(
+        doctorId: String,
+        date: String,
+        tokenNumber: Int,
+        patientId: String
+    ): Resource<DailyQueue> = withContext(dispatchers.io) {
+        try {
+            val updated = firebaseDataSource.callPatientAtomic(doctorId, date, tokenNumber, patientId)
+            Resource.Success(updated)
+        } catch (e: Exception) {
+            Resource.Error(e.message ?: "Failed to call patient", e)
+        }
+    }
+
     override suspend fun updateQueueStatus(
         doctorId: String,
         date: String,
-        status: QueueStatus
+        status: QueueStatus,
+        breakMessage: String?
     ): Resource<Unit> = withContext(dispatchers.io) {
-        dataStore.updateQueueStatus(doctorId, date, status)
-        Resource.Success(Unit)
+        try {
+            firebaseDataSource.updateQueueStatus(doctorId, date, status, breakMessage)
+            dataStore.updateQueueStatus(doctorId, date, status)
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            dataStore.updateQueueStatus(doctorId, date, status)
+            Resource.Success(Unit)
+        }
+    }
+
+    override suspend fun markConsultationComplete(
+        doctorId: String,
+        date: String,
+        appointmentId: String,
+        doctorNotes: String
+    ): Resource<Unit> = withContext(dispatchers.io) {
+        try {
+            firebaseDataSource.markConsultationComplete(doctorId, date, appointmentId, doctorNotes)
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            Resource.Error(e.message ?: "Failed to complete consultation", e)
+        }
+    }
+
+    override suspend fun markNoShow(
+        doctorId: String,
+        date: String,
+        appointmentId: String
+    ): Resource<Unit> = withContext(dispatchers.io) {
+        try {
+            firebaseDataSource.markNoShow(doctorId, date, appointmentId)
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            Resource.Error(e.message ?: "Failed to mark no-show", e)
+        }
     }
 
     override suspend fun resetQueue(doctorId: String, date: String): Resource<DailyQueue> = withContext(dispatchers.io) {
-        val reset = dataStore.resetQueue(doctorId, date)
-        Resource.Success(reset)
+        try {
+            val queue = firebaseDataSource.resetQueue(doctorId, date)
+            Resource.Success(queue)
+        } catch (e: Exception) {
+            val reset = dataStore.resetQueue(doctorId, date)
+            Resource.Success(reset)
+        }
     }
 }
