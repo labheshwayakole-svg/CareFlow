@@ -23,7 +23,7 @@ class AuthRepositoryImpl(
     private val dispatchers: DispatcherProvider = DefaultDispatcherProvider()
 ) : AuthRepository {
 
-    private val _currentUserFlow = MutableStateFlow<User?>(dataStore.demoPatient)
+    private val _currentUserFlow = MutableStateFlow<User?>(null)
 
     override fun observeCurrentUser(): Flow<User?> = _currentUserFlow.asStateFlow()
 
@@ -164,7 +164,7 @@ class AuthRepositoryImpl(
                 id = "phone_${UUID.randomUUID().toString().take(8)}",
                 name = if (name.isNotBlank()) name else "Verified Patient",
                 email = "patient@careflow.phone",
-                phone = "+917219889504",
+                phone = "+919800000000",
                 role = role
             )
             dataStore.registerUser(phoneUser)
@@ -197,10 +197,29 @@ class AuthRepositoryImpl(
 
     override suspend fun switchDemoUser(role: UserRole): Resource<User> = withContext(dispatchers.io) {
         val target = when (role) {
-            UserRole.PATIENT -> dataStore.demoPatient
-            UserRole.DOCTOR -> dataStore.demoDoctor
-            UserRole.ADMIN -> dataStore.demoAdmin
+            UserRole.PATIENT -> User(
+                id = "patient_user_01",
+                name = "Patient User",
+                email = "patient@careflow.app",
+                phone = "",
+                role = UserRole.PATIENT
+            )
+            UserRole.DOCTOR -> User(
+                id = "doctor_user_01",
+                name = "Doctor User",
+                email = "doctor@careflow.app",
+                phone = "",
+                role = UserRole.DOCTOR
+            )
+            UserRole.ADMIN -> User(
+                id = "admin_user_01",
+                name = "Hospital Administrator",
+                email = "admin@careflow.app",
+                phone = "",
+                role = UserRole.ADMIN
+            )
         }
+        dataStore.registerUser(target)
         _currentUserFlow.value = target
         dataStore.setCurrentUser(target)
         Resource.Success(target)

@@ -66,24 +66,11 @@ class AdminViewModel(
                 _uiState.update { it.copy(currentAdmin = user) }
                 if (user != null) {
                     val hospRes = hospitalRepository.getHospitalByAdminId(user.id)
-                    val hosp = if (hospRes is Resource.Success && hospRes.data != null) {
-                        hospRes.data
-                    } else {
-                        // Fallback or default hospital for admin
-                        val defaultHosp = Hospital(
-                            id = user.hospitalId ?: "hosp_main",
-                            name = "CareFlow Central Hospital",
-                            opdName = "Main OPD Complex",
-                            address = "Healthcare Boulevard, Medical District",
-                            city = "Mumbai",
-                            phone = "+91 98200 12345",
-                            adminId = user.id
-                        )
-                        hospitalRepository.registerHospital(defaultHosp)
-                        defaultHosp
-                    }
+                    val hosp = if (hospRes is Resource.Success) hospRes.data else null
                     _uiState.update { it.copy(hospital = hosp) }
-                    observeHospitalData(hosp.id)
+                    if (hosp != null) {
+                        observeHospitalData(hosp.id)
+                    }
                 }
             }
         }
@@ -142,9 +129,10 @@ class AdminViewModel(
                         it.copy(
                             hospital = res.data,
                             isLoading = false,
-                            successMessage = "Hospital & OPD details saved successfully!"
+                            successMessage = "${res.data.name} & OPD details saved successfully!"
                         )
                     }
+                    observeHospitalData(res.data.id)
                 }
                 is Resource.Error -> {
                     _uiState.update { it.copy(isLoading = false, errorMessage = res.message) }
@@ -182,7 +170,7 @@ class AdminViewModel(
             val tempPassword = "Doctor@${(1000..9999).random()}"
 
             // 1. Create doctor account in auth repository
-            authRepository.register(
+            val regRes = authRepository.register(
                 name = if (name.startsWith("Dr.")) name else "Dr. $name",
                 email = loginEmail,
                 password = tempPassword,
@@ -190,9 +178,11 @@ class AdminViewModel(
                 role = UserRole.DOCTOR
             )
 
+            val docUserId = if (regRes is Resource.Success) regRes.data.id else "user_$sanitizedName"
+
             val newDoctor = Doctor(
                 id = "doc_${UUID.randomUUID().toString().take(6)}",
-                userId = "user_$sanitizedName",
+                userId = docUserId,
                 hospitalId = hospId,
                 name = if (name.startsWith("Dr.")) name else "Dr. $name",
                 specialization = specialization,

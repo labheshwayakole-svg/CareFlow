@@ -384,13 +384,14 @@ fun AdminDashboardScreen(
     if (showAddDoctorDialog) {
         var name by remember { mutableStateOf("") }
         var specialization by remember { mutableStateOf("") }
+        var customDeptName by remember { mutableStateOf("") }
         var selectedDept by remember { mutableStateOf(uiState.departments.firstOrNull()) }
-        var qualification by remember { mutableStateOf("MBBS, MD") }
-        var experienceYears by remember { mutableStateOf("5") }
-        var fee by remember { mutableStateOf("500") }
+        var qualification by remember { mutableStateOf("") }
+        var experienceYears by remember { mutableStateOf("") }
+        var fee by remember { mutableStateOf("") }
         var shiftStart by remember { mutableStateOf("09:00 AM") }
         var shiftEnd by remember { mutableStateOf("02:00 PM") }
-        var maxTokens by remember { mutableStateOf("25") }
+        var maxTokens by remember { mutableStateOf("20") }
         var deptDropdownExpanded by remember { mutableStateOf(false) }
 
         AlertDialog(
@@ -417,30 +418,40 @@ fun AdminDashboardScreen(
                         )
                     }
                     item {
-                        ExposedDropdownMenuBox(
-                            expanded = deptDropdownExpanded,
-                            onExpandedChange = { deptDropdownExpanded = !deptDropdownExpanded }
-                        ) {
+                        if (uiState.departments.isEmpty()) {
                             OutlinedTextField(
-                                value = selectedDept?.name ?: "Select Department",
-                                onValueChange = {},
-                                readOnly = true,
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = deptDropdownExpanded) },
-                                modifier = Modifier.menuAnchor().fillMaxWidth(),
-                                label = { Text("Department") }
+                                value = customDeptName,
+                                onValueChange = { customDeptName = it },
+                                label = { Text("Department (e.g. Cardiology)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
                             )
-                            ExposedDropdownMenu(
+                        } else {
+                            ExposedDropdownMenuBox(
                                 expanded = deptDropdownExpanded,
-                                onDismissRequest = { deptDropdownExpanded = false }
+                                onExpandedChange = { deptDropdownExpanded = !deptDropdownExpanded }
                             ) {
-                                uiState.departments.forEach { dept ->
-                                    DropdownMenuItem(
-                                        text = { Text(dept.name) },
-                                        onClick = {
-                                            selectedDept = dept
-                                            deptDropdownExpanded = false
-                                        }
-                                    )
+                                OutlinedTextField(
+                                    value = selectedDept?.name ?: "Select Department",
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = deptDropdownExpanded) },
+                                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                                    label = { Text("Department") }
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = deptDropdownExpanded,
+                                    onDismissRequest = { deptDropdownExpanded = false }
+                                ) {
+                                    uiState.departments.forEach { dept ->
+                                        DropdownMenuItem(
+                                            text = { Text(dept.name) },
+                                            onClick = {
+                                                selectedDept = dept
+                                                deptDropdownExpanded = false
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -450,7 +461,7 @@ fun AdminDashboardScreen(
                             OutlinedTextField(
                                 value = qualification,
                                 onValueChange = { qualification = it },
-                                label = { Text("Qualification") },
+                                label = { Text("Qualification (e.g. MBBS, MD)") },
                                 modifier = Modifier.weight(1f),
                                 singleLine = true
                             )
@@ -504,19 +515,20 @@ fun AdminDashboardScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        val dept = selectedDept ?: uiState.departments.firstOrNull()
-                        if (name.isNotBlank() && dept != null) {
+                        val deptId = selectedDept?.id ?: if (customDeptName.isNotBlank()) "dept_${customDeptName.lowercase().replace(" ", "_").take(8)}" else "dept_general"
+                        val deptName = selectedDept?.name ?: if (customDeptName.isNotBlank()) customDeptName else "General"
+                        if (name.isNotBlank()) {
                             onAddDoctor(
                                 name,
                                 specialization,
-                                dept.id,
-                                dept.name,
-                                qualification,
-                                experienceYears.toIntOrNull() ?: 5,
+                                deptId,
+                                deptName,
+                                qualification.ifBlank { "MBBS, MD" },
+                                experienceYears.toIntOrNull() ?: 1,
                                 fee.toDoubleOrNull() ?: 500.0,
                                 shiftStart,
                                 shiftEnd,
-                                maxTokens.toIntOrNull() ?: 25
+                                maxTokens.toIntOrNull() ?: 20
                             )
                             showAddDoctorDialog = false
                         }
@@ -600,47 +612,86 @@ private fun OverviewTab(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         // Hospital Details Card
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+        if (uiState.hospital == null) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Column {
-                            Text(
-                                text = uiState.hospital?.name ?: "Hospital Not Named",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                            Text(
-                                text = "OPD: ${uiState.hospital?.opdName?.ifBlank { "General OPD" } ?: "General OPD"}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                        IconButton(onClick = onEditHospitalClick) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Default.LocalHospital, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(44.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = "No Hospital Configured",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "You are in Admin mode. Please setup your hospital name, OPD details, and contact number to begin managing departments and doctors.",
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Button(
+                            onClick = onEditHospitalClick,
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Business, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Setup Hospital & OPD", fontWeight = FontWeight.Bold)
                         }
                     }
+                }
+            }
+        } else {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = uiState.hospital.name,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                Text(
+                                    text = "OPD: ${uiState.hospital.opdName.ifBlank { "General OPD" }}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            IconButton(onClick = onEditHospitalClick) {
+                                Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
 
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = "📍 ${uiState.hospital?.address?.ifBlank { "Address not configured" } ?: "Address not configured"}, ${uiState.hospital?.city.orEmpty()}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "📞 Helpdesk: ${uiState.hospital?.phone?.ifBlank { "Not provided" } ?: "Not provided"}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = "📍 ${uiState.hospital.address.ifBlank { "Address not configured" }}, ${uiState.hospital.city}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "📞 Helpdesk: ${uiState.hospital.phone.ifBlank { "Not provided" }}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }

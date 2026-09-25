@@ -89,14 +89,14 @@ fun AuthScreen(
     val activity = remember(context) { context.findActivity() }
 
     // Email fields
-    var email by remember { mutableStateOf("patient@careflow.com") }
-    var password by remember { mutableStateOf("pass123") }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var selectedRole by remember { mutableStateOf(UserRole.PATIENT) }
 
     // Phone OTP fields
-    var otpPhone by remember { mutableStateOf("7219889504") }
+    var otpPhone by remember { mutableStateOf("") }
     var otpCode by remember { mutableStateOf("") }
     var otpName by remember { mutableStateOf("") }
 
@@ -332,7 +332,7 @@ fun AuthScreen(
                             value = otpPhone,
                             onValueChange = { otpPhone = it },
                             label = { Text("Phone Number (+91...)") },
-                            placeholder = { Text("7219889504") },
+                            placeholder = { Text("Enter 10-digit mobile number") },
                             leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
@@ -450,9 +450,9 @@ fun AuthScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Demo Quick Access
+        // Quick Role Access
         Text(
-            text = "⚡ INSTANT ROLE DEMO SWITCHER",
+            text = "QUICK ROLE ACCESS",
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,

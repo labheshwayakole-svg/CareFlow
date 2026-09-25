@@ -24,214 +24,23 @@ class InMemoryDataStore {
     private val todayDateString: String
         get() = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
 
-    // Demo Users
-    val demoPatient = User(
-        id = "user_patient_01",
-        name = "Sarfraj Ansari",
-        email = "patient@careflow.com",
-        phone = "9876543210",
-        role = UserRole.PATIENT
-    )
-
-    val demoDoctor = User(
-        id = "user_doc_cardio_01",
-        name = "Dr. Rajesh Sharma",
-        email = "doctor@careflow.com",
-        phone = "9823456789",
-        role = UserRole.DOCTOR
-    )
-
-    val demoAdmin = User(
-        id = "user_admin_01",
-        name = "Hospital Administrator",
-        email = "admin@careflow.com",
-        phone = "9811122233",
-        role = UserRole.ADMIN
-    )
-
-    private val _users = MutableStateFlow(
-        listOf(demoPatient, demoDoctor, demoAdmin)
-    )
+    // In-memory state flows initialized to empty states (zero fake data)
+    private val _users = MutableStateFlow<List<User>>(emptyList())
     val users: StateFlow<List<User>> = _users.asStateFlow()
 
-    private val _currentUser = MutableStateFlow<User?>(demoPatient)
+    private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
-    // Departments
-    private val initialDepartments = listOf(
-        Department("dept_cardio", "Cardiology", "Heart & Cardiovascular Care", doctorCount = 2, iconName = "cardiology"),
-        Department("dept_ortho", "Orthopedics", "Bone, Joint & Spine Health", doctorCount = 2, iconName = "orthopedics"),
-        Department("dept_pedia", "Pediatrics", "Infant, Child & Adolescent Medicine", doctorCount = 1, iconName = "pediatrics"),
-        Department("dept_gen", "General Medicine", "Primary Care & Chronic Disease Management", doctorCount = 2, iconName = "medicine"),
-        Department("dept_derma", "Dermatology", "Skin, Hair & Cosmetic Treatment", doctorCount = 1, iconName = "dermatology"),
-        Department("dept_neuro", "Neurology", "Brain, Nerve & Stroke Specialists", doctorCount = 1, iconName = "neurology")
-    )
-    private val _departments = MutableStateFlow(initialDepartments)
+    private val _departments = MutableStateFlow<List<Department>>(emptyList())
     val departments: StateFlow<List<Department>> = _departments.asStateFlow()
 
-    // Doctors
-    private val initialDoctors = listOf(
-        Doctor(
-            id = "doc_cardio_01",
-            userId = "user_doc_cardio_01",
-            name = "Dr. Rajesh Sharma",
-            specialization = "Senior Interventional Cardiologist",
-            departmentId = "dept_cardio",
-            departmentName = "Cardiology",
-            qualification = "MBBS, MD, DM (Cardiology)",
-            experienceYears = 16,
-            consultationFee = 600.0,
-            avgConsultationMinutes = 15,
-            availableDays = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat"),
-            shiftStartTime = "09:00 AM",
-            shiftEndTime = "02:00 PM",
-            maxTokensPerDay = 30,
-            isAvailable = true,
-            rating = 4.9,
-            totalReviews = 210
-        ),
-        Doctor(
-            id = "doc_cardio_02",
-            userId = "user_doc_cardio_02",
-            name = "Dr. Sunita Patel",
-            specialization = "Cardiac Electrophysiologist",
-            departmentId = "dept_cardio",
-            departmentName = "Cardiology",
-            qualification = "MBBS, MD (Medicine), DNB (Cardiology)",
-            experienceYears = 11,
-            consultationFee = 550.0,
-            avgConsultationMinutes = 15,
-            availableDays = listOf("Mon", "Wed", "Fri"),
-            shiftStartTime = "10:00 AM",
-            shiftEndTime = "03:00 PM",
-            maxTokensPerDay = 20,
-            isAvailable = true,
-            rating = 4.7,
-            totalReviews = 145
-        ),
-        Doctor(
-            id = "doc_ortho_01",
-            userId = "user_doc_ortho_01",
-            name = "Dr. Amit Varma",
-            specialization = "Joint Replacement & Spine Surgeon",
-            departmentId = "dept_ortho",
-            departmentName = "Orthopedics",
-            qualification = "MBBS, MS (Ortho), M.Ch (UK)",
-            experienceYears = 14,
-            consultationFee = 700.0,
-            avgConsultationMinutes = 20,
-            availableDays = listOf("Tue", "Thu", "Sat"),
-            shiftStartTime = "09:30 AM",
-            shiftEndTime = "01:30 PM",
-            maxTokensPerDay = 25,
-            isAvailable = true,
-            rating = 4.8,
-            totalReviews = 180
-        ),
-        Doctor(
-            id = "doc_pedia_01",
-            userId = "user_doc_pedia_01",
-            name = "Dr. Neha Kulkarni",
-            specialization = "Consultant Pediatrician",
-            departmentId = "dept_pedia",
-            departmentName = "Pediatrics",
-            qualification = "MBBS, DCH, DNB (Pediatrics)",
-            experienceYears = 9,
-            consultationFee = 500.0,
-            avgConsultationMinutes = 12,
-            availableDays = listOf("Mon", "Tue", "Wed", "Thu", "Fri"),
-            shiftStartTime = "09:00 AM",
-            shiftEndTime = "01:00 PM",
-            maxTokensPerDay = 35,
-            isAvailable = true,
-            rating = 4.9,
-            totalReviews = 310
-        ),
-        Doctor(
-            id = "doc_gen_01",
-            userId = "user_doc_gen_01",
-            name = "Dr. Vikram Joshi",
-            specialization = "General Physician & Diabetologist",
-            departmentId = "dept_gen",
-            departmentName = "General Medicine",
-            qualification = "MBBS, MD (Gen Med)",
-            experienceYears = 18,
-            consultationFee = 400.0,
-            avgConsultationMinutes = 10,
-            availableDays = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat"),
-            shiftStartTime = "08:30 AM",
-            shiftEndTime = "01:30 PM",
-            maxTokensPerDay = 40,
-            isAvailable = true,
-            rating = 4.8,
-            totalReviews = 450
-        )
-    )
-    private val _doctors = MutableStateFlow(initialDoctors)
+    private val _doctors = MutableStateFlow<List<Doctor>>(emptyList())
     val doctors: StateFlow<List<Doctor>> = _doctors.asStateFlow()
 
-    // Queues map: key = "{doctorId}_{date}"
-    private val _queues = MutableStateFlow<Map<String, DailyQueue>>(
-        mapOf(
-            "doc_cardio_01_$todayDateString" to DailyQueue(
-                queueId = "doc_cardio_01_$todayDateString",
-                doctorId = "doc_cardio_01",
-                doctorName = "Dr. Rajesh Sharma",
-                date = todayDateString,
-                currentToken = 4,
-                totalTokensIssued = 8,
-                status = QueueStatus.ACTIVE
-            )
-        )
-    )
+    private val _queues = MutableStateFlow<Map<String, DailyQueue>>(emptyMap())
     val queues: StateFlow<Map<String, DailyQueue>> = _queues.asStateFlow()
 
-    // Appointments
-    private val initialAppointments = listOf(
-        Appointment(
-            id = "apt_demo_01",
-            patientId = "user_patient_01",
-            patientName = "Sarfraj Ansari",
-            patientPhone = "9876543210",
-            doctorId = "doc_cardio_01",
-            doctorName = "Dr. Rajesh Sharma",
-            departmentName = "Cardiology",
-            date = todayDateString,
-            timeSlot = "10:30 AM",
-            tokenNumber = 7,
-            status = AppointmentStatus.BOOKED,
-            notes = "Routine blood pressure check & follow-up"
-        ),
-        Appointment(
-            id = "apt_demo_02",
-            patientId = "user_patient_02",
-            patientName = "Pooja Verma",
-            patientPhone = "9876500001",
-            doctorId = "doc_cardio_01",
-            doctorName = "Dr. Rajesh Sharma",
-            departmentName = "Cardiology",
-            date = todayDateString,
-            timeSlot = "09:45 AM",
-            tokenNumber = 4,
-            status = AppointmentStatus.IN_CONSULTATION,
-            notes = "Chest discomfort"
-        ),
-        Appointment(
-            id = "apt_demo_03",
-            patientId = "user_patient_03",
-            patientName = "Kunal Singh",
-            patientPhone = "9876500002",
-            doctorId = "doc_cardio_01",
-            doctorName = "Dr. Rajesh Sharma",
-            departmentName = "Cardiology",
-            date = todayDateString,
-            timeSlot = "10:00 AM",
-            tokenNumber = 5,
-            status = AppointmentStatus.BOOKED,
-            notes = "ECG review"
-        )
-    )
-    private val _appointments = MutableStateFlow(initialAppointments)
+    private val _appointments = MutableStateFlow<List<Appointment>>(emptyList())
     val appointments: StateFlow<List<Appointment>> = _appointments.asStateFlow()
 
     // Thread-safe operations

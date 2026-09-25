@@ -115,51 +115,147 @@ fun DoctorDashboardScreen(
             contentPadding = PaddingValues(top = 16.dp, bottom = 40.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Header: Doctor Profile & Status
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(46.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.MedicalServices,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
+            if (doctor == null) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MedicalServices,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Doctor Portal",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "CareFlow OPD System",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = doctor?.name ?: "Dr. Specialist",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "${doctor?.specialization.orEmpty()} • ${doctor?.departmentName.orEmpty()}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
 
-                    IconButton(onClick = onLogoutClick) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                            contentDescription = "Logout",
-                            tint = MaterialTheme.colorScheme.error
-                        )
+                        IconButton(onClick = onLogoutClick) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                                contentDescription = "Logout",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                 }
-            }
+
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MedicalServices,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Text(
+                                text = "No Doctor Profile Found",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "You are currently opened in Doctor mode, but no doctor has been added yet.\n\nPlease open as Admin first to setup your hospital and add doctors, or sign in using generated doctor credentials.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = onLogoutClick,
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Switch Role / Logout")
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Header: Doctor Profile & Status
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MedicalServices,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = doctor.name,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "${doctor.specialization} • ${doctor.departmentName}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+
+                        IconButton(onClick = onLogoutClick) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                                contentDescription = "Logout",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
 
             // Real-Time OPD Presence & Break Toggles
             item {
@@ -521,6 +617,7 @@ fun DoctorDashboardScreen(
             }
         }
     }
+}
 
     // Break Dialog
     if (showBreakDialog) {

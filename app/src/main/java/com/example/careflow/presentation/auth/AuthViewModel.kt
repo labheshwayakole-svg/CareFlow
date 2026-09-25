@@ -52,7 +52,7 @@ class AuthViewModel(
             return
         }
         if (!trimmedEmail.contains("@") || !trimmedEmail.contains(".")) {
-            _uiState.update { it.copy(errorMessage = "Please enter a valid email address (e.g., patient@careflow.com).") }
+            _uiState.update { it.copy(errorMessage = "Please enter a valid email address (e.g., user@example.com).") }
             return
         }
         viewModelScope.launch {

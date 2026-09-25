@@ -183,12 +183,16 @@ fun PatientHomeScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = uiState.selectedHospital?.name ?: "Select Hospital",
+                                text = uiState.selectedHospital?.name ?: "No Hospital Registered",
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.bodyLarge
                             )
                             Text(
-                                text = "${uiState.selectedHospital?.opdName?.ifBlank { "Main OPD" } ?: "Main OPD"} • ${uiState.selectedHospital?.city.orEmpty()}",
+                                text = if (uiState.selectedHospital != null) {
+                                    "${uiState.selectedHospital.opdName.ifBlank { "Main OPD" }} • ${uiState.selectedHospital.city}"
+                                } else {
+                                    "Tap to select or register hospital in Admin"
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -351,10 +355,12 @@ fun PatientHomeScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = if (uiState.filterOnlyInOpd) "No doctors currently marked 'In OPD' in this department."
-                            else "No doctors found in this hospital yet.",
+                            text = if (uiState.selectedHospital == null) "No hospital registered yet. Please setup your hospital in the Admin Dashboard."
+                            else if (uiState.filterOnlyInOpd) "No doctors currently marked 'In OPD' in this department."
+                            else "No doctors found in this hospital yet. Doctors will appear here once added in the Admin Dashboard.",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                     }
                 }
@@ -375,34 +381,43 @@ fun PatientHomeScreen(
             onDismissRequest = { showHospitalDialog = false },
             title = { Text("Select Hospital", fontWeight = FontWeight.Bold) },
             text = {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(uiState.hospitals) { hosp ->
-                        val isSelected = hosp.id == uiState.selectedHospital?.id
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    onSelectHospital(hosp)
-                                    showHospitalDialog = false
-                                },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
-                            )
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.Business,
-                                    contentDescription = null,
-                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray
+                if (uiState.hospitals.isEmpty()) {
+                    Text(
+                        text = "No hospitals registered yet. Please switch to Admin mode and setup your hospital.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+                } else {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(uiState.hospitals) { hosp ->
+                            val isSelected = hosp.id == uiState.selectedHospital?.id
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onSelectHospital(hosp)
+                                        showHospitalDialog = false
+                                    },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
                                 )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column {
-                                    Text(hosp.name, fontWeight = FontWeight.Bold)
-                                    Text("${hosp.opdName.ifBlank { "Main OPD" }} • ${hosp.city}", style = MaterialTheme.typography.bodySmall)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.Business,
+                                        contentDescription = null,
+                                        tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column {
+                                        Text(hosp.name, fontWeight = FontWeight.Bold)
+                                        Text("${hosp.opdName.ifBlank { "Main OPD" }} • ${hosp.city}", style = MaterialTheme.typography.bodySmall)
+                                    }
                                 }
                             }
                         }

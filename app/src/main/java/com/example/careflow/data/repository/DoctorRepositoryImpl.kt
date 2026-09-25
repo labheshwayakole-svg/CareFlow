@@ -47,15 +47,28 @@ class DoctorRepositoryImpl(
         try {
             val doc = firebaseDataSource.getDoctorByUserId(userId)
             if (doc != null) {
-                Resource.Success(doc)
-            } else {
-                val local = dataStore.doctors.value.find { it.userId == userId } ?: dataStore.doctors.value.firstOrNull()
-                if (local != null) Resource.Success(local) else Resource.Error("Doctor profile not found.")
+                return@withContext Resource.Success(doc)
             }
-        } catch (e: Exception) {
-            val local = dataStore.doctors.value.find { it.userId == userId } ?: dataStore.doctors.value.firstOrNull()
-            if (local != null) Resource.Success(local) else Resource.Error(e.message ?: "Failed to get doctor", e)
+        } catch (_: Exception) {}
+
+        // Check local store by userId
+        val local = dataStore.doctors.value.find { it.userId == userId }
+        if (local != null) return@withContext Resource.Success(local)
+
+        // Check local store by loginEmail matching the current user's email
+        val curEmail = dataStore.currentUser.value?.email
+        if (!curEmail.isNullOrBlank()) {
+            val matchedEmail = dataStore.doctors.value.find { it.loginEmail.equals(curEmail, ignoreCase = true) }
+            if (matchedEmail != null) return@withContext Resource.Success(matchedEmail)
         }
+
+        // If the user used the direct Doctor role button and doctors have been created in the hospital
+        if (userId == "doctor_user_01" || userId.startsWith("doctor_")) {
+            val createdDoctor = dataStore.doctors.value.firstOrNull()
+            if (createdDoctor != null) return@withContext Resource.Success(createdDoctor)
+        }
+
+        Resource.Error("Doctor profile not found.")
     }
 
     override suspend fun addDoctor(doctor: Doctor): Resource<Doctor> = withContext(dispatchers.io) {

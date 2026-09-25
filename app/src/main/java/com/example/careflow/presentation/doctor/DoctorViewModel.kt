@@ -62,14 +62,30 @@ class DoctorViewModel(
                 if (user != null) {
                     when (val res = doctorRepository.getDoctorByUserId(user.id)) {
                         is Resource.Success -> {
-                            _uiState.update { it.copy(doctor = res.data) }
+                            _uiState.update { it.copy(doctor = res.data, errorMessage = null) }
                             observeDoctorQueue(res.data.id)
                             observeDoctorAppointments(res.data.id)
                         }
                         is Resource.Error -> {
-                            _uiState.update { it.copy(errorMessage = res.message) }
+                            _uiState.update {
+                                it.copy(
+                                    doctor = null,
+                                    todayQueue = null,
+                                    todayAppointments = emptyList(),
+                                    currentServingAppointment = null
+                                )
+                            }
                         }
                         is Resource.Loading -> {}
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            doctor = null,
+                            todayQueue = null,
+                            todayAppointments = emptyList(),
+                            currentServingAppointment = null
+                        )
                     }
                 }
             }
