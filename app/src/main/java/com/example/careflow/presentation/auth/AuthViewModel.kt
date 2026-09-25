@@ -1,5 +1,6 @@
 package com.example.careflow.presentation.auth
 
+import android.app.Activity
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -19,7 +20,9 @@ data class AuthUiState(
     val user: User? = null,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
-    val successMessage: String? = null
+    val successMessage: String? = null,
+    val phoneVerificationId: String? = null,
+    val isOtpSent: Boolean = false
 )
 
 class AuthViewModel(
@@ -75,6 +78,71 @@ class AuthViewModel(
         }
     }
 
+    fun signInWithGoogle(idToken: String, role: UserRole) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            when (val res = authRepository.loginWithGoogle(idToken, role)) {
+                is Resource.Success -> {
+                    _uiState.update {
+                        it.copy(isLoading = false, user = res.data, successMessage = "Signed in with Google as ${res.data.name}!")
+                    }
+                }
+                is Resource.Error -> {
+                    _uiState.update { it.copy(isLoading = false, errorMessage = res.message) }
+                }
+                is Resource.Loading -> {}
+            }
+        }
+    }
+
+    fun sendPhoneOtp(activity: Activity, phone: String) {
+        val formatted = if (!phone.startsWith("+")) "+91$phone" else phone
+        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+        viewModelScope.launch {
+            authRepository.verifyPhoneNumber(
+                activity = activity,
+                phoneNumber = formatted,
+                onCodeSent = { verificationId ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            phoneVerificationId = verificationId,
+                            isOtpSent = true,
+                            successMessage = "OTP sent to $formatted"
+                        )
+                    }
+                },
+                onError = { err ->
+                    _uiState.update { it.copy(isLoading = false, errorMessage = err) }
+                }
+            )
+        }
+    }
+
+    fun verifyPhoneOtp(code: String, name: String, role: UserRole) {
+        val verificationId = _uiState.value.phoneVerificationId ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            when (val res = authRepository.signInWithPhoneCode(verificationId, code, name, role)) {
+                is Resource.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            isOtpSent = false,
+                            phoneVerificationId = null,
+                            user = res.data,
+                            successMessage = "Phone verified successfully!"
+                        )
+                    }
+                }
+                is Resource.Error -> {
+                    _uiState.update { it.copy(isLoading = false, errorMessage = res.message) }
+                }
+                is Resource.Loading -> {}
+            }
+        }
+    }
+
     fun switchDemoRole(role: UserRole) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
@@ -95,7 +163,7 @@ class AuthViewModel(
     fun logout() {
         viewModelScope.launch {
             authRepository.logout()
-            _uiState.update { it.copy(user = null, successMessage = "Logged out successfully.") }
+            _uiState.update { it.copy(user = null, isOtpSent = false, successMessage = "Logged out successfully.") }
         }
     }
 

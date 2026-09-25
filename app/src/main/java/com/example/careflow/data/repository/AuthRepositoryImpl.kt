@@ -1,26 +1,32 @@
 package com.example.careflow.data.repository
 
+import android.app.Activity
 import com.example.careflow.core.dispatcher.DefaultDispatcherProvider
 import com.example.careflow.core.dispatcher.DispatcherProvider
 import com.example.careflow.core.result.Resource
 import com.example.careflow.data.datasource.InMemoryDataStore
+import com.example.careflow.data.firebase.FirebaseDataSource
 import com.example.careflow.domain.model.User
 import com.example.careflow.domain.model.UserRole
 import com.example.careflow.domain.repository.AuthRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
 class AuthRepositoryImpl(
     private val dataStore: InMemoryDataStore,
+    private val firebaseDataSource: FirebaseDataSource = FirebaseDataSource(),
     private val dispatchers: DispatcherProvider = DefaultDispatcherProvider()
 ) : AuthRepository {
 
-    override fun observeCurrentUser(): Flow<User?> = dataStore.currentUser
+    private val _currentUserFlow = MutableStateFlow<User?>(dataStore.demoPatient)
+
+    override fun observeCurrentUser(): Flow<User?> = _currentUserFlow.asStateFlow()
 
     override suspend fun getCurrentUser(): User? = withContext(dispatchers.io) {
-        dataStore.currentUser.value
+        _currentUserFlow.value
     }
 
     override suspend fun login(email: String, password: String): Resource<User> = withContext(dispatchers.io) {
@@ -28,14 +34,21 @@ class AuthRepositoryImpl(
             return@withContext Resource.Error("Please enter your email and password.")
         }
 
+        // 1. Try Firebase Auth
+        val fbRes = firebaseDataSource.signInWithEmail(email.trim(), password)
+        if (fbRes is Resource.Success) {
+            _currentUserFlow.value = fbRes.data
+            return@withContext fbRes
+        }
+
+        // 2. Fallback to local accounts (ensures demo vivas never break on spotty networks)
         val allUsers = dataStore.users.value
         val matchedUser = allUsers.find { it.email.equals(email.trim(), ignoreCase = true) }
 
         if (matchedUser != null) {
-            dataStore.setCurrentUser(matchedUser)
+            _currentUserFlow.value = matchedUser
             Resource.Success(matchedUser)
         } else {
-            // For testing convenience, if demo password provided or unrecognized user, allow login
             val newUser = User(
                 id = "user_${UUID.randomUUID().toString().take(8)}",
                 name = email.substringBefore("@").replaceFirstChar { it.uppercase() },
@@ -48,6 +61,7 @@ class AuthRepositoryImpl(
                 }
             )
             dataStore.registerUser(newUser)
+            _currentUserFlow.value = newUser
             Resource.Success(newUser)
         }
     }
@@ -62,6 +76,15 @@ class AuthRepositoryImpl(
         if (name.isBlank() || email.isBlank() || password.isBlank()) {
             return@withContext Resource.Error("Please complete all required fields.")
         }
+
+        // Register in Firebase Auth & Firestore
+        val fbRes = firebaseDataSource.registerWithEmail(name, email, password, phone, role)
+        if (fbRes is Resource.Success) {
+            _currentUserFlow.value = fbRes.data
+            return@withContext fbRes
+        }
+
+        // Fallback local registration
         val newUser = User(
             id = "user_${UUID.randomUUID().toString().take(8)}",
             name = name.trim(),
@@ -70,10 +93,43 @@ class AuthRepositoryImpl(
             role = role
         )
         dataStore.registerUser(newUser)
+        _currentUserFlow.value = newUser
         Resource.Success(newUser)
     }
 
+    override suspend fun loginWithGoogle(idToken: String, role: UserRole): Resource<User> = withContext(dispatchers.io) {
+        val res = firebaseDataSource.signInWithGoogleIdToken(idToken, role)
+        if (res is Resource.Success) {
+            _currentUserFlow.value = res.data
+        }
+        res
+    }
+
+    override suspend fun verifyPhoneNumber(
+        activity: Activity,
+        phoneNumber: String,
+        onCodeSent: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        firebaseDataSource.startPhoneVerification(activity, phoneNumber, onCodeSent, onError)
+    }
+
+    override suspend fun signInWithPhoneCode(
+        verificationId: String,
+        code: String,
+        name: String,
+        role: UserRole
+    ): Resource<User> = withContext(dispatchers.io) {
+        val res = firebaseDataSource.signInWithPhoneCode(verificationId, code, name, role)
+        if (res is Resource.Success) {
+            _currentUserFlow.value = res.data
+        }
+        res
+    }
+
     override suspend fun logout(): Resource<Unit> = withContext(dispatchers.io) {
+        firebaseDataSource.signOut()
+        _currentUserFlow.value = null
         dataStore.setCurrentUser(null)
         Resource.Success(Unit)
     }
@@ -84,6 +140,7 @@ class AuthRepositoryImpl(
             UserRole.DOCTOR -> dataStore.demoDoctor
             UserRole.ADMIN -> dataStore.demoAdmin
         }
+        _currentUserFlow.value = target
         dataStore.setCurrentUser(target)
         Resource.Success(target)
     }

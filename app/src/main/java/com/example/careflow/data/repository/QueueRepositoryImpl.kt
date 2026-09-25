@@ -4,6 +4,7 @@ import com.example.careflow.core.dispatcher.DefaultDispatcherProvider
 import com.example.careflow.core.dispatcher.DispatcherProvider
 import com.example.careflow.core.result.Resource
 import com.example.careflow.data.datasource.InMemoryDataStore
+import com.example.careflow.data.firebase.FirebaseDataSource
 import com.example.careflow.domain.model.DailyQueue
 import com.example.careflow.domain.model.QueueStatus
 import com.example.careflow.domain.repository.QueueRepository
@@ -13,6 +14,7 @@ import kotlinx.coroutines.withContext
 
 class QueueRepositoryImpl(
     private val dataStore: InMemoryDataStore,
+    private val firebaseDataSource: FirebaseDataSource = FirebaseDataSource(),
     private val dispatchers: DispatcherProvider = DefaultDispatcherProvider()
 ) : QueueRepository {
 
@@ -46,7 +48,6 @@ class QueueRepositoryImpl(
                 totalTokensIssued = 0,
                 status = QueueStatus.ACTIVE
             )
-            // Save to queues map
             val map = dataStore.queues.value.toMutableMap()
             map[key] = newQueue
             Resource.Success(newQueue)
@@ -55,8 +56,14 @@ class QueueRepositoryImpl(
 
     override suspend fun advanceQueue(doctorId: String, date: String): Resource<DailyQueue> = withContext(dispatchers.io) {
         try {
-            val updatedQueue = dataStore.advanceQueueAtomic(doctorId, date)
-            Resource.Success(updatedQueue)
+            try {
+                val updated = firebaseDataSource.advanceQueueAtomic(doctorId, date)
+                dataStore.advanceQueueAtomic(doctorId, date)
+                return@withContext Resource.Success(updated)
+            } catch (_: Exception) {
+                val updatedQueue = dataStore.advanceQueueAtomic(doctorId, date)
+                Resource.Success(updatedQueue)
+            }
         } catch (e: Exception) {
             Resource.Error(e.message ?: "Failed to advance queue", e)
         }

@@ -4,6 +4,7 @@ import com.example.careflow.core.dispatcher.DefaultDispatcherProvider
 import com.example.careflow.core.dispatcher.DispatcherProvider
 import com.example.careflow.core.result.Resource
 import com.example.careflow.data.datasource.InMemoryDataStore
+import com.example.careflow.data.firebase.FirebaseDataSource
 import com.example.careflow.domain.model.Appointment
 import com.example.careflow.domain.model.AppointmentStatus
 import com.example.careflow.domain.model.Doctor
@@ -14,6 +15,7 @@ import kotlinx.coroutines.withContext
 
 class AppointmentRepositoryImpl(
     private val dataStore: InMemoryDataStore,
+    private val firebaseDataSource: FirebaseDataSource = FirebaseDataSource(),
     private val dispatchers: DispatcherProvider = DefaultDispatcherProvider()
 ) : AppointmentRepository {
 
@@ -27,16 +29,35 @@ class AppointmentRepositoryImpl(
         notes: String
     ): Resource<Appointment> = withContext(dispatchers.io) {
         try {
-            val appointment = dataStore.bookAppointmentAtomic(
-                patientId = patientId,
-                patientName = patientName,
-                patientPhone = patientPhone,
-                doctor = doctor,
-                date = date,
-                timeSlot = timeSlot,
-                notes = notes
-            )
-            Resource.Success(appointment)
+            // Attempt Firestore transaction first
+            try {
+                val apt = firebaseDataSource.bookAppointmentAtomic(
+                    patientId = patientId,
+                    patientName = patientName,
+                    patientPhone = patientPhone,
+                    doctor = doctor,
+                    date = date,
+                    timeSlot = timeSlot,
+                    notes = notes
+                )
+                // Mirror to local data store
+                dataStore.bookAppointmentAtomic(
+                    patientId, patientName, patientPhone, doctor, date, timeSlot, notes
+                )
+                return@withContext Resource.Success(apt)
+            } catch (_: Exception) {
+                // Fallback to local atomic memory transaction
+                val apt = dataStore.bookAppointmentAtomic(
+                    patientId = patientId,
+                    patientName = patientName,
+                    patientPhone = patientPhone,
+                    doctor = doctor,
+                    date = date,
+                    timeSlot = timeSlot,
+                    notes = notes
+                )
+                Resource.Success(apt)
+            }
         } catch (e: Exception) {
             Resource.Error(e.message ?: "Failed to book appointment", e)
         }
@@ -57,6 +78,9 @@ class AppointmentRepositoryImpl(
     override fun observeAllAppointments(): Flow<List<Appointment>> = dataStore.appointments
 
     override suspend fun cancelAppointment(appointmentId: String): Resource<Unit> = withContext(dispatchers.io) {
+        try {
+            firebaseDataSource.updateAppointmentStatus(appointmentId, AppointmentStatus.CANCELLED)
+        } catch (_: Exception) {}
         dataStore.cancelAppointment(appointmentId)
         Resource.Success(Unit)
     }
@@ -66,6 +90,9 @@ class AppointmentRepositoryImpl(
         status: AppointmentStatus,
         doctorNotes: String
     ): Resource<Unit> = withContext(dispatchers.io) {
+        try {
+            firebaseDataSource.updateAppointmentStatus(appointmentId, status, doctorNotes)
+        } catch (_: Exception) {}
         dataStore.updateAppointmentStatus(appointmentId, status, doctorNotes)
         Resource.Success(Unit)
     }

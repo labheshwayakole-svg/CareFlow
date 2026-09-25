@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "1031538679030",
+    "project_id": "careflow-8615e",
+    "storage_bucket": "careflow-8615e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1031538679030:android:d548603173aa6a9a57e0d7",
+        "android_client_info": {
+          "package_name": "com.example.careflow"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1031538679030-6u0djjvo82r0nukqdi46mggrl7t4127a.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.careflow",
+            "certificate_hash": "1f51ae05c3c26341168898f17985da271c649c9b"
+          }
+        },
+        {
+          "client_id": "1031538679030-5sugfkn8q816q05svsbdmip942bs546b.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDfFv-_xg_ppl9gF5JoslNZGvOTRzAfKVk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1031538679030-5sugfkn8q816q05svsbdmip942bs546b.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

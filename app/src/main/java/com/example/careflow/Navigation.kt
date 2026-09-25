@@ -90,6 +90,15 @@ fun MainNavigation(
                     onRegisterClick = { name, email, pass, phone, role ->
                         authViewModel.register(name, email, pass, phone, role)
                     },
+                    onSendOtpClick = { activity, phone ->
+                        authViewModel.sendPhoneOtp(activity, phone)
+                    },
+                    onVerifyOtpClick = { code, name, role ->
+                        authViewModel.verifyPhoneOtp(code, name, role)
+                    },
+                    onGoogleSignInClick = {
+                        authViewModel.signInWithGoogle("sample_token", UserRole.PATIENT)
+                    },
                     onSwitchDemoRole = { role -> authViewModel.switchDemoRole(role) }
                 )
             } else {

@@ -3,6 +3,7 @@ package com.example.careflow.core.di
 import com.example.careflow.core.dispatcher.DefaultDispatcherProvider
 import com.example.careflow.core.dispatcher.DispatcherProvider
 import com.example.careflow.data.datasource.InMemoryDataStore
+import com.example.careflow.data.firebase.FirebaseDataSource
 import com.example.careflow.data.repository.AppointmentRepositoryImpl
 import com.example.careflow.data.repository.AuthRepositoryImpl
 import com.example.careflow.data.repository.DoctorRepositoryImpl
@@ -26,20 +27,39 @@ object ServiceLocator {
         InMemoryDataStore()
     }
 
+    val firebaseDataSource: FirebaseDataSource by lazy {
+        FirebaseDataSource()
+    }
+
     val authRepository: AuthRepository by lazy {
-        AuthRepositoryImpl(inMemoryDataStore, dispatcherProvider)
+        AuthRepositoryImpl(
+            dataStore = inMemoryDataStore,
+            firebaseDataSource = firebaseDataSource,
+            dispatchers = dispatcherProvider
+        )
     }
 
     val doctorRepository: DoctorRepository by lazy {
-        DoctorRepositoryImpl(inMemoryDataStore, dispatcherProvider)
+        DoctorRepositoryImpl(
+            dataStore = inMemoryDataStore,
+            dispatchers = dispatcherProvider
+        )
     }
 
     val appointmentRepository: AppointmentRepository by lazy {
-        AppointmentRepositoryImpl(inMemoryDataStore, dispatcherProvider)
+        AppointmentRepositoryImpl(
+            dataStore = inMemoryDataStore,
+            firebaseDataSource = firebaseDataSource,
+            dispatchers = dispatcherProvider
+        )
     }
 
     val queueRepository: QueueRepository by lazy {
-        QueueRepositoryImpl(inMemoryDataStore, dispatcherProvider)
+        QueueRepositoryImpl(
+            dataStore = inMemoryDataStore,
+            firebaseDataSource = firebaseDataSource,
+            dispatchers = dispatcherProvider
+        )
     }
 
     // Use Cases

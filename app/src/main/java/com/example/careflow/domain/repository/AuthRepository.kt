@@ -1,5 +1,6 @@
 package com.example.careflow.domain.repository
 
+import android.app.Activity
 import com.example.careflow.core.result.Resource
 import com.example.careflow.domain.model.User
 import com.example.careflow.domain.model.UserRole
@@ -16,6 +17,9 @@ interface AuthRepository {
         phone: String,
         role: UserRole
     ): Resource<User>
+    suspend fun loginWithGoogle(idToken: String, role: UserRole = UserRole.PATIENT): Resource<User>
+    suspend fun verifyPhoneNumber(activity: Activity, phoneNumber: String, onCodeSent: (String) -> Unit, onError: (String) -> Unit)
+    suspend fun signInWithPhoneCode(verificationId: String, code: String, name: String, role: UserRole): Resource<User>
     suspend fun logout(): Resource<Unit>
     suspend fun switchDemoUser(role: UserRole): Resource<User>
 }

@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) || (isAuthenticated() && request.auth.token.role == 'ADMIN');
+    }
+
+    // Departments collection
+    match /departments/{deptId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Doctors collection
+    match /doctors/{doctorId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Appointments collection
+    match /appointments/{appointmentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
+
+    // Daily queues collection (Real-time live queue)
+    match /daily_queues/{queueId} {
+      allow read: if true; // Publicly observable for OPD waiting room screens and patients
+      allow write: if isAuthenticated();
+    }
+  }
+}
