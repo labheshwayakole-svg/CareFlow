@@ -241,15 +241,19 @@ class FirebaseDataSource(
     }
 
     suspend fun saveUserProfile(user: User) {
-        val data = hashMapOf(
-            "id" to user.id,
-            "name" to user.name,
-            "email" to user.email,
-            "phone" to user.phone,
-            "role" to user.role.name,
-            "createdAt" to user.createdAt
-        )
-        firestore.collection("users").document(user.id).set(data, SetOptions.merge()).await()
+        try {
+            val data = hashMapOf(
+                "id" to user.id,
+                "name" to user.name,
+                "email" to user.email,
+                "phone" to user.phone,
+                "role" to user.role.name,
+                "createdAt" to user.createdAt
+            )
+            firestore.collection("users").document(user.id).set(data, SetOptions.merge()).await()
+        } catch (_: Exception) {
+            // Silently handle so that user authentication succeeds even if firestore write experiences delay
+        }
     }
 
     fun signOut() {

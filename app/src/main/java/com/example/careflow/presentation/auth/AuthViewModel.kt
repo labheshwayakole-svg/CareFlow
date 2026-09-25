@@ -45,9 +45,19 @@ class AuthViewModel(
     }
 
     fun login(email: String, password: String) {
+        val trimmedEmail = email.trim()
+        val trimmedPass = password.trim()
+        if (trimmedEmail.isBlank() || trimmedPass.isBlank()) {
+            _uiState.update { it.copy(errorMessage = "Please enter both email and password.") }
+            return
+        }
+        if (!trimmedEmail.contains("@") || !trimmedEmail.contains(".")) {
+            _uiState.update { it.copy(errorMessage = "Please enter a valid email address (e.g., patient@careflow.com).") }
+            return
+        }
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            when (val res = authRepository.login(email, password)) {
+            when (val res = authRepository.login(trimmedEmail, trimmedPass)) {
                 is Resource.Success -> {
                     _uiState.update {
                         it.copy(isLoading = false, user = res.data, successMessage = "Welcome, ${res.data.name}!")
@@ -62,9 +72,24 @@ class AuthViewModel(
     }
 
     fun register(name: String, email: String, password: String, phone: String, role: UserRole) {
+        val trimmedEmail = email.trim()
+        val trimmedPass = password.trim()
+        val trimmedName = name.trim()
+        if (trimmedName.isBlank() || trimmedEmail.isBlank() || trimmedPass.isBlank()) {
+            _uiState.update { it.copy(errorMessage = "Please complete all required fields.") }
+            return
+        }
+        if (!trimmedEmail.contains("@") || !trimmedEmail.contains(".")) {
+            _uiState.update { it.copy(errorMessage = "Please enter a valid email address.") }
+            return
+        }
+        if (trimmedPass.length < 6) {
+            _uiState.update { it.copy(errorMessage = "Password must be at least 6 characters.") }
+            return
+        }
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            when (val res = authRepository.register(name, email, password, phone, role)) {
+            when (val res = authRepository.register(trimmedName, trimmedEmail, trimmedPass, phone.trim(), role)) {
                 is Resource.Success -> {
                     _uiState.update {
                         it.copy(isLoading = false, user = res.data, successMessage = "Account created successfully!")
