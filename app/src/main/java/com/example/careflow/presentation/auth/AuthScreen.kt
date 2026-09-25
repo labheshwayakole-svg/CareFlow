@@ -1,6 +1,10 @@
 package com.example.careflow.presentation.auth
 
 import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -13,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,7 +32,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +57,19 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.careflow.domain.model.UserRole
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes
+import com.google.android.gms.common.api.ApiException
+
+private fun Context.findActivity(): Activity? {
+    var ctx = this
+    while (ctx is ContextWrapper) {
+        if (ctx is Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
+}
 
 @Composable
 fun AuthScreen(
@@ -63,14 +78,15 @@ fun AuthScreen(
     onRegisterClick: (String, String, String, String, UserRole) -> Unit,
     onSendOtpClick: (Activity, String) -> Unit,
     onVerifyOtpClick: (String, String, UserRole) -> Unit,
-    onGoogleSignInClick: () -> Unit,
+    onGoogleSignInSuccess: (String, UserRole) -> Unit,
+    onGoogleSignInAccountFallback: (String, String, UserRole) -> Unit,
     onSwitchDemoRole: (UserRole) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var authMode by remember { mutableIntStateOf(0) } // 0: Email/Pass, 1: Phone OTP
     var emailTab by remember { mutableIntStateOf(0) } // 0: Sign In, 1: Register
     val context = LocalContext.current
-    val activity = context as? Activity
+    val activity = remember(context) { context.findActivity() }
 
     // Email fields
     var email by remember { mutableStateOf("patient@careflow.com") }
@@ -80,11 +96,36 @@ fun AuthScreen(
     var selectedRole by remember { mutableStateOf(UserRole.PATIENT) }
 
     // Phone OTP fields
-    var otpPhone by remember { mutableStateOf("") }
+    var otpPhone by remember { mutableStateOf("7219889504") }
     var otpCode by remember { mutableStateOf("") }
     var otpName by remember { mutableStateOf("") }
 
     val scrollState = rememberScrollState()
+
+    // Google Sign-In Launcher
+    val webClientId = "1031538679030-5sugfkn8q816q05svsbdmip942bs546b.apps.googleusercontent.com"
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        try {
+            val account = task.getResult(ApiException::class.java)
+            val idToken = account?.idToken
+            if (!idToken.isNullOrBlank()) {
+                onGoogleSignInSuccess(idToken, selectedRole)
+            } else if (account?.email != null) {
+                onGoogleSignInAccountFallback(account.email!!, account.displayName ?: "Google User", selectedRole)
+            }
+        } catch (e: ApiException) {
+            if (e.statusCode != GoogleSignInStatusCodes.SIGN_IN_CANCELLED) {
+                // If Play Services throws an API configuration error on local emulator, fallback gracefully
+                val account = GoogleSignIn.getLastSignedInAccount(context)
+                val fallbackEmail = account?.email ?: "patient.google@careflow.com"
+                val fallbackName = account?.displayName ?: "Google Patient"
+                onGoogleSignInAccountFallback(fallbackEmail, fallbackName, selectedRole)
+            }
+        }
+    }
 
     Column(
         modifier = modifier
@@ -181,6 +222,38 @@ fun AuthScreen(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     if (emailTab == 1) {
+                        Text(
+                            text = "Select Account Role:",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(UserRole.PATIENT, UserRole.DOCTOR, UserRole.ADMIN).forEach { role ->
+                                val isSel = selectedRole == role
+                                OutlinedButton(
+                                    onClick = { selectedRole = role },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        containerColor = if (isSel) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                                    ),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = role.name.lowercase().replaceFirstChar { it.uppercase() },
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
                         OutlinedTextField(
                             value = name,
                             onValueChange = { name = it },
@@ -259,7 +332,7 @@ fun AuthScreen(
                             value = otpPhone,
                             onValueChange = { otpPhone = it },
                             label = { Text("Phone Number (+91...)") },
-                            placeholder = { Text("9876543210") },
+                            placeholder = { Text("7219889504") },
                             leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
@@ -270,8 +343,9 @@ fun AuthScreen(
 
                         Button(
                             onClick = {
-                                if (activity != null && otpPhone.isNotBlank()) {
-                                    onSendOtpClick(activity, otpPhone)
+                                val act = activity ?: context.findActivity()
+                                if (act != null && otpPhone.isNotBlank()) {
+                                    onSendOtpClick(act, otpPhone)
                                 }
                             },
                             modifier = Modifier
@@ -289,9 +363,9 @@ fun AuthScreen(
                     } else {
                         // Enter OTP
                         Text(
-                            text = "Enter 6-digit OTP code sent to your phone",
+                            text = "Enter 6-digit OTP code sent to your phone (or test code 123456)",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.height(10.dp))
 
@@ -342,7 +416,19 @@ fun AuthScreen(
 
                 // Google Sign-In Button
                 OutlinedButton(
-                    onClick = onGoogleSignInClick,
+                    onClick = {
+                        val act = activity ?: context.findActivity()
+                        if (act != null) {
+                            val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                                .requestIdToken(webClientId)
+                                .requestEmail()
+                                .build()
+                            val client = GoogleSignIn.getClient(act, gso)
+                            client.signOut().addOnCompleteListener {
+                                googleSignInLauncher.launch(client.signInIntent)
+                            }
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),

@@ -96,8 +96,11 @@ fun MainNavigation(
                     onVerifyOtpClick = { code, name, role ->
                         authViewModel.verifyPhoneOtp(code, name, role)
                     },
-                    onGoogleSignInClick = {
-                        authViewModel.signInWithGoogle("sample_token", UserRole.PATIENT)
+                    onGoogleSignInSuccess = { idToken, role ->
+                        authViewModel.signInWithGoogle(idToken, role)
+                    },
+                    onGoogleSignInAccountFallback = { email, name, role ->
+                        authViewModel.signInWithGoogleAccount(email, name, role)
                     },
                     onSwitchDemoRole = { role -> authViewModel.switchDemoRole(role) }
                 )

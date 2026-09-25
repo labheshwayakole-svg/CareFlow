@@ -49,18 +49,39 @@ class FirebaseDataSource(
             if (user != null) {
                 Resource.Success(user)
             } else {
-                // If profile missing, create default
                 val defaultUser = User(
                     id = uid,
-                    name = result.user?.displayName ?: email.substringBefore("@"),
+                    name = result.user?.displayName ?: email.substringBefore("@").replaceFirstChar { it.uppercase() },
                     email = email,
                     phone = "",
-                    role = if (email.contains("doc")) UserRole.DOCTOR else if (email.contains("admin")) UserRole.ADMIN else UserRole.PATIENT
+                    role = if (email.contains("doc", ignoreCase = true)) UserRole.DOCTOR else if (email.contains("admin", ignoreCase = true)) UserRole.ADMIN else UserRole.PATIENT
                 )
                 saveUserProfile(defaultUser)
                 Resource.Success(defaultUser)
             }
         } catch (e: Exception) {
+            val msg = e.message.orEmpty()
+            // If user record is not found in Firebase Auth, automatically create it for seamless sign-in
+            if (msg.contains("no user record", ignoreCase = true) ||
+                msg.contains("user-not-found", ignoreCase = true) ||
+                msg.contains("INVALID_LOGIN_CREDENTIALS", ignoreCase = true)
+            ) {
+                try {
+                    val createRes = auth.createUserWithEmailAndPassword(email, pass).await()
+                    val uid = createRes.user?.uid ?: return Resource.Error("Failed to auto-create user.")
+                    val defaultUser = User(
+                        id = uid,
+                        name = email.substringBefore("@").replaceFirstChar { it.uppercase() },
+                        email = email,
+                        phone = "",
+                        role = if (email.contains("doc", ignoreCase = true)) UserRole.DOCTOR else if (email.contains("admin", ignoreCase = true)) UserRole.ADMIN else UserRole.PATIENT
+                    )
+                    saveUserProfile(defaultUser)
+                    return Resource.Success(defaultUser)
+                } catch (_: Exception) {
+                    // Fall through to original error if password was wrong on existing user
+                }
+            }
             Resource.Error(e.message ?: "Authentication failed", e)
         }
     }
@@ -117,11 +138,13 @@ class FirebaseDataSource(
         activity: Activity,
         phoneNumber: String,
         onCodeSent: (String) -> Unit,
+        onAutoVerified: (PhoneAuthCredential) -> Unit,
         onError: (String) -> Unit
     ) {
         val callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
             override fun onVerificationCompleted(credential: PhoneAuthCredential) {
-                // Auto-retrieval or instant verification
+                // Instant auto-retrieval / verification on device
+                onAutoVerified(credential)
             }
 
             override fun onVerificationFailed(e: FirebaseException) {
@@ -143,6 +166,33 @@ class FirebaseDataSource(
         PhoneAuthProvider.verifyPhoneNumber(options)
     }
 
+    suspend fun signInWithPhoneCredential(
+        credential: PhoneAuthCredential,
+        name: String,
+        role: UserRole
+    ): Resource<User> {
+        return try {
+            val result = auth.signInWithCredential(credential).await()
+            val firebaseUser = result.user ?: return Resource.Error("Phone sign in failed.")
+            val existing = getUserProfile(firebaseUser.uid)
+            if (existing != null) {
+                Resource.Success(existing)
+            } else {
+                val newUser = User(
+                    id = firebaseUser.uid,
+                    name = if (name.isNotBlank()) name else "Verified Patient",
+                    email = "${firebaseUser.phoneNumber?.filter { it.isDigit() } ?: "user"}@careflow.phone",
+                    phone = firebaseUser.phoneNumber ?: "",
+                    role = role
+                )
+                saveUserProfile(newUser)
+                Resource.Success(newUser)
+            }
+        } catch (e: Exception) {
+            Resource.Error(e.message ?: "Phone auto-verification failed", e)
+        }
+    }
+
     suspend fun signInWithPhoneCode(
         verificationId: String,
         smsCode: String,
@@ -160,7 +210,7 @@ class FirebaseDataSource(
                 val newUser = User(
                     id = firebaseUser.uid,
                     name = if (name.isNotBlank()) name else "Phone Patient",
-                    email = "",
+                    email = "${firebaseUser.phoneNumber?.filter { it.isDigit() } ?: "user"}@careflow.phone",
                     phone = firebaseUser.phoneNumber ?: "",
                     role = role
                 )

@@ -18,7 +18,14 @@ interface AuthRepository {
         role: UserRole
     ): Resource<User>
     suspend fun loginWithGoogle(idToken: String, role: UserRole = UserRole.PATIENT): Resource<User>
-    suspend fun verifyPhoneNumber(activity: Activity, phoneNumber: String, onCodeSent: (String) -> Unit, onError: (String) -> Unit)
+    suspend fun loginWithGoogleAccount(email: String, displayName: String, role: UserRole = UserRole.PATIENT): Resource<User>
+    suspend fun verifyPhoneNumber(
+        activity: Activity,
+        phoneNumber: String,
+        onCodeSent: (String) -> Unit,
+        onAutoVerified: (User) -> Unit,
+        onError: (String) -> Unit
+    )
     suspend fun signInWithPhoneCode(verificationId: String, code: String, name: String, role: UserRole): Resource<User>
     suspend fun logout(): Resource<Unit>
     suspend fun switchDemoUser(role: UserRole): Resource<User>

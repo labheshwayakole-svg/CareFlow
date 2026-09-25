@@ -2,6 +2,7 @@
   "auth": {
     "providers": {
       "emailPassword": true,
+      "phone": true,
       "googleSignIn": {
         "oAuthBrandDisplayName": "CareFlow",
         "supportEmail": "sarf030404araz@gmail.com"
