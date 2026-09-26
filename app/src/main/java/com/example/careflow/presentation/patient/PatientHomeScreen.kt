@@ -73,6 +73,7 @@ import com.example.careflow.theme.QueueWaitingAmber
 fun PatientHomeScreen(
     uiState: PatientUiState,
     onSelectHospital: (Hospital) -> Unit,
+    onChangeHospitalClick: () -> Unit = {},
     onSelectDepartment: (String?) -> Unit,
     onToggleFilterInOpd: () -> Unit,
     onSearchQueryChange: (String) -> Unit,
@@ -156,7 +157,7 @@ fun PatientHomeScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { showHospitalDialog = true },
+                    .clickable { onChangeHospitalClick() },
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
             ) {

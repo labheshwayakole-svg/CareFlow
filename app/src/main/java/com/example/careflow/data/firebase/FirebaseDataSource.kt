@@ -65,28 +65,7 @@ class FirebaseDataSource(
                 Resource.Success(defaultUser)
             }
         } catch (e: Exception) {
-            val msg = e.message.orEmpty()
-            if (msg.contains("no user record", ignoreCase = true) ||
-                msg.contains("user-not-found", ignoreCase = true) ||
-                msg.contains("INVALID_LOGIN_CREDENTIALS", ignoreCase = true)
-            ) {
-                try {
-                    val createRes = auth.createUserWithEmailAndPassword(email, pass).await()
-                    val uid = createRes.user?.uid ?: return Resource.Error("Failed to auto-create user.")
-                    val defaultUser = User(
-                        id = uid,
-                        name = email.substringBefore("@").replaceFirstChar { it.uppercase() },
-                        email = email,
-                        phone = "",
-                        role = if (email.contains("doc", ignoreCase = true)) UserRole.DOCTOR else if (email.contains("admin", ignoreCase = true)) UserRole.ADMIN else UserRole.PATIENT
-                    )
-                    saveUserProfile(defaultUser)
-                    return Resource.Success(defaultUser)
-                } catch (_: Exception) {
-                    // Fall through
-                }
-            }
-            Resource.Error(e.message ?: "Authentication failed", e)
+            Resource.Error(e.message ?: "Authentication failed. Please verify your credentials.", e)
         }
     }
 
@@ -438,7 +417,19 @@ class FirebaseDataSource(
                 .get()
                 .await()
             val doc = snapshot.documents.firstOrNull()
-            if (doc != null && doc.exists()) mapDoctor(doc.id, doc.data) else null
+            if (doc != null && doc.exists()) return mapDoctor(doc.id, doc.data)
+
+            val user = getUserProfile(userId)
+            if (user?.email?.isNotBlank() == true) {
+                val emailSnap = firestore.collection("doctors")
+                    .whereEqualTo("loginEmail", user.email.trim())
+                    .limit(1)
+                    .get()
+                    .await()
+                val emailDoc = emailSnap.documents.firstOrNull()
+                if (emailDoc != null && emailDoc.exists()) return mapDoctor(emailDoc.id, emailDoc.data)
+            }
+            null
         } catch (_: Exception) {
             null
         }

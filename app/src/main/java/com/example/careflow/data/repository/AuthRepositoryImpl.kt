@@ -43,7 +43,7 @@ class AuthRepositoryImpl(
             return@withContext fbRes
         }
 
-        // 2. Fallback to local accounts (ensures demo vivas never break on spotty networks)
+        // 2. Check registered accounts in local memory cache
         val allUsers = dataStore.users.value
         val matchedUser = allUsers.find { it.email.equals(email.trim(), ignoreCase = true) }
 
@@ -51,20 +51,8 @@ class AuthRepositoryImpl(
             _currentUserFlow.value = matchedUser
             Resource.Success(matchedUser)
         } else {
-            val newUser = User(
-                id = "user_${UUID.randomUUID().toString().take(8)}",
-                name = email.substringBefore("@").replaceFirstChar { it.uppercase() },
-                email = email.trim(),
-                phone = "9800000000",
-                role = when {
-                    email.contains("doc", ignoreCase = true) -> UserRole.DOCTOR
-                    email.contains("admin", ignoreCase = true) -> UserRole.ADMIN
-                    else -> UserRole.PATIENT
-                }
-            )
-            dataStore.registerUser(newUser)
-            _currentUserFlow.value = newUser
-            Resource.Success(newUser)
+            val err = (fbRes as? Resource.Error)?.message ?: "Invalid email or password. Please check your credentials."
+            Resource.Error(err)
         }
     }
 

@@ -29,6 +29,7 @@ import com.example.careflow.presentation.auth.AuthViewModel
 import com.example.careflow.presentation.doctor.DoctorDashboardScreen
 import com.example.careflow.presentation.doctor.DoctorViewModel
 import com.example.careflow.presentation.patient.DoctorBookingScreen
+import com.example.careflow.presentation.patient.HospitalSearchScreen
 import com.example.careflow.presentation.patient.MyAppointmentsScreen
 import com.example.careflow.presentation.patient.PatientHomeScreen
 import com.example.careflow.presentation.patient.PatientViewModel
@@ -102,46 +103,70 @@ fun MainNavigation(
                     onGoogleSignInAccountFallback = { email, name, role ->
                         authViewModel.signInWithGoogleAccount(email, name, role)
                     },
-                    onSwitchDemoRole = { role -> authViewModel.switchDemoRole(role) }
+                    onDoctorLoginClick = { idOrEmail, pass ->
+                        authViewModel.loginDoctor(idOrEmail, pass)
+                    },
+                    onAdminLoginClick = { email, pass ->
+                        authViewModel.loginAdmin(email, pass)
+                    },
+                    onAdminRegisterClick = { name, email, pass, phone ->
+                        authViewModel.registerAdmin(name, email, pass, phone)
+                    }
                 )
             } else {
                 when (user.role) {
                     UserRole.PATIENT -> {
-                        AnimatedContent(
-                            targetState = patientDestination,
-                            transitionSpec = { fadeIn() togetherWith fadeOut() },
-                            label = "PatientNav"
-                        ) { destination ->
-                            when (destination) {
-                                is PatientScreenDestination.Home -> {
-                                    PatientHomeScreen(
-                                        uiState = patientState,
-                                        onSelectHospital = { hosp -> patientViewModel.selectHospital(hosp) },
-                                        onSelectDepartment = { deptId -> patientViewModel.selectDepartment(deptId) },
-                                        onToggleFilterInOpd = { patientViewModel.toggleFilterOnlyInOpd() },
-                                        onSearchQueryChange = { query -> patientViewModel.setSearchQuery(query) },
-                                        onSelectDoctorForBooking = { doc ->
-                                            patientViewModel.selectDoctor(doc)
-                                            patientDestination = PatientScreenDestination.Booking(doc)
-                                        },
-                                        onOpenQueueTracker = {
-                                            patientDestination = PatientScreenDestination.QueueTracker
-                                        },
-                                        onOpenMyAppointments = {
-                                            patientDestination = PatientScreenDestination.MyAppointments
-                                        },
-                                        onMarkNotificationRead = { notifId ->
-                                            patientViewModel.markNotificationAsRead(notifId)
-                                        },
-                                        onMarkAllNotificationsRead = {
-                                            patientViewModel.markAllNotificationsAsRead()
-                                        },
-                                        onLogoutClick = {
-                                            authViewModel.logout()
-                                            patientDestination = PatientScreenDestination.Home
-                                        }
-                                    )
+                        if (patientState.selectedHospital == null) {
+                            HospitalSearchScreen(
+                                uiState = patientState,
+                                onSelectHospital = { hosp -> patientViewModel.selectHospital(hosp) },
+                                onLogoutClick = {
+                                    authViewModel.logout()
+                                    patientViewModel.clearSelectedHospital()
+                                    patientDestination = PatientScreenDestination.Home
                                 }
+                            )
+                        } else {
+                            AnimatedContent(
+                                targetState = patientDestination,
+                                transitionSpec = { fadeIn() togetherWith fadeOut() },
+                                label = "PatientNav"
+                            ) { destination ->
+                                when (destination) {
+                                    is PatientScreenDestination.Home -> {
+                                        PatientHomeScreen(
+                                            uiState = patientState,
+                                            onSelectHospital = { hosp -> patientViewModel.selectHospital(hosp) },
+                                            onChangeHospitalClick = {
+                                                patientViewModel.clearSelectedHospital()
+                                                patientDestination = PatientScreenDestination.Home
+                                            },
+                                            onSelectDepartment = { deptId -> patientViewModel.selectDepartment(deptId) },
+                                            onToggleFilterInOpd = { patientViewModel.toggleFilterOnlyInOpd() },
+                                            onSearchQueryChange = { query -> patientViewModel.setSearchQuery(query) },
+                                            onSelectDoctorForBooking = { doc ->
+                                                patientViewModel.selectDoctor(doc)
+                                                patientDestination = PatientScreenDestination.Booking(doc)
+                                            },
+                                            onOpenQueueTracker = {
+                                                patientDestination = PatientScreenDestination.QueueTracker
+                                            },
+                                            onOpenMyAppointments = {
+                                                patientDestination = PatientScreenDestination.MyAppointments
+                                            },
+                                            onMarkNotificationRead = { notifId ->
+                                                patientViewModel.markNotificationAsRead(notifId)
+                                            },
+                                            onMarkAllNotificationsRead = {
+                                                patientViewModel.markAllNotificationsAsRead()
+                                            },
+                                            onLogoutClick = {
+                                                authViewModel.logout()
+                                                patientViewModel.clearSelectedHospital()
+                                                patientDestination = PatientScreenDestination.Home
+                                            }
+                                        )
+                                    }
                                 is PatientScreenDestination.Booking -> {
                                     DoctorBookingScreen(
                                         doctor = destination.doctor,
@@ -183,8 +208,9 @@ fun MainNavigation(
                             }
                         }
                     }
+                }
 
-                    UserRole.DOCTOR -> {
+                UserRole.DOCTOR -> {
                         DoctorDashboardScreen(
                             uiState = doctorState,
                             onCallNextPatient = { doctorViewModel.callNextPatient() },

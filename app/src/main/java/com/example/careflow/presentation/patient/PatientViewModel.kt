@@ -82,12 +82,6 @@ class PatientViewModel(
                 if (user != null) {
                     observeMyAppointments(user.id)
                     observeNotifications(user.id)
-                    // If user has a selected hospital, match it
-                    val hosp = _uiState.value.hospitals.find { it.id == user.selectedHospitalId }
-                        ?: _uiState.value.hospitals.firstOrNull()
-                    if (hosp != null && _uiState.value.selectedHospital == null) {
-                        selectHospital(hosp)
-                    }
                 }
             }
         }
@@ -96,11 +90,14 @@ class PatientViewModel(
     private fun observeHospitals() {
         viewModelScope.launch {
             hospitalRepository.observeHospitals().collect { hospList ->
-                _uiState.update { it.copy(hospitals = hospList) }
-                if (_uiState.value.selectedHospital == null && hospList.isNotEmpty()) {
-                    val userHospId = _uiState.value.currentUser?.selectedHospitalId
-                    val matched = hospList.find { it.id == userHospId } ?: hospList.first()
-                    selectHospital(matched)
+                _uiState.update { current ->
+                    val updatedSel = current.selectedHospital?.let { sel ->
+                        hospList.find { it.id == sel.id }
+                    }
+                    current.copy(
+                        hospitals = hospList,
+                        selectedHospital = updatedSel
+                    )
                 }
             }
         }
@@ -118,6 +115,19 @@ class PatientViewModel(
         }
         observeHospitalDepartments(hospital.id)
         observeHospitalDoctors(hospital.id)
+    }
+
+    fun clearSelectedHospital() {
+        departmentsJob?.cancel()
+        doctorsJob?.cancel()
+        _uiState.update {
+            it.copy(
+                selectedHospital = null,
+                selectedDepartmentId = null,
+                departments = emptyList(),
+                doctors = emptyList()
+            )
+        }
     }
 
     private fun observeHospitalDepartments(hospitalId: String) {

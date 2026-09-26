@@ -208,21 +208,96 @@ class AuthViewModel(
         }
     }
 
-    fun switchDemoRole(role: UserRole) {
+    fun loginDoctor(idOrEmail: String, password: String) {
+        val trimmed = idOrEmail.trim()
+        val formattedEmail = if (!trimmed.contains("@")) "$trimmed@careflow.hospital" else trimmed
+        val trimmedPass = password.trim()
+        if (trimmed.isBlank() || trimmedPass.isBlank()) {
+            _uiState.update { it.copy(errorMessage = "Please enter both Doctor ID/Email and password.") }
+            return
+        }
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            when (val res = authRepository.switchDemoUser(role)) {
+            when (val res = authRepository.login(formattedEmail, trimmedPass)) {
                 is Resource.Success -> {
-                    _uiState.update {
-                        it.copy(isLoading = false, user = res.data, successMessage = "Switched to ${res.data.role.name} role.")
+                    if (res.data.role != UserRole.DOCTOR) {
+                        authRepository.logout()
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                user = null,
+                                errorMessage = "Access denied: Account '${res.data.email}' does not have Doctor privileges. Please sign in with Doctor credentials."
+                            )
+                        }
+                    } else {
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                user = res.data,
+                                successMessage = "Welcome, Dr. ${res.data.name}!"
+                            )
+                        }
                     }
                 }
                 is Resource.Error -> {
-                    _uiState.update { it.copy(isLoading = false, errorMessage = res.message) }
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = res.message ?: "Invalid Doctor credentials. Please check your Doctor ID and password."
+                        )
+                    }
                 }
                 is Resource.Loading -> {}
             }
         }
+    }
+
+    fun loginAdmin(email: String, password: String) {
+        val trimmedEmail = email.trim()
+        val formattedEmail = if (!trimmedEmail.contains("@")) "$trimmedEmail@careflow.com" else trimmedEmail
+        val trimmedPass = password.trim()
+        if (trimmedEmail.isBlank() || trimmedPass.isBlank()) {
+            _uiState.update { it.copy(errorMessage = "Please enter both Admin Email and password.") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            when (val res = authRepository.login(formattedEmail, trimmedPass)) {
+                is Resource.Success -> {
+                    if (res.data.role != UserRole.ADMIN) {
+                        authRepository.logout()
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                user = null,
+                                errorMessage = "Access denied: Account '${res.data.email}' does not have Administrator privileges. Please sign in with Admin credentials."
+                            )
+                        }
+                    } else {
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                user = res.data,
+                                successMessage = "Welcome Administrator, ${res.data.name}!"
+                            )
+                        }
+                    }
+                }
+                is Resource.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = res.message ?: "Invalid Admin credentials. Please check your email and password."
+                        )
+                    }
+                }
+                is Resource.Loading -> {}
+            }
+        }
+    }
+
+    fun registerAdmin(name: String, email: String, password: String, phone: String) {
+        register(name, email, password, phone, UserRole.ADMIN)
     }
 
     fun logout() {
