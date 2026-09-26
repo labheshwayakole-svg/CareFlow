@@ -1,9 +1,7 @@
 package com.example.careflow.presentation.patient
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -27,12 +25,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -44,6 +44,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -59,6 +60,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.careflow.domain.model.Hospital
+import com.example.careflow.theme.CardBorderSubtle
+import com.example.careflow.theme.CareBackground
+import com.example.careflow.theme.CarePrimary
+import com.example.careflow.theme.CarePrimaryContainer
+import com.example.careflow.theme.PastelMint
+import com.example.careflow.theme.PastelSky
+import com.example.careflow.theme.QueueActiveGreen
 
 data class ProblemCategory(
     val title: String,
@@ -110,7 +118,7 @@ fun HospitalSearchScreen(
                 hosp.name.lowercase().contains(kw) ||
                 hosp.opdName.lowercase().contains(kw) ||
                 hosp.address.lowercase().contains(kw)
-            } || matchesTextQuery // If the hospital doesn't have department names in its root object, still show if user searched
+            } || matchesTextQuery
         }
 
         matchesTextQuery && matchesCategory
@@ -119,11 +127,12 @@ fun HospitalSearchScreen(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
+            .background(CareBackground)
             .padding(horizontal = 16.dp),
         contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Header Row: Logo, Greeting, Logout
+        // Header Row: Calming Logo, Patient Greeting, Logout
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -133,15 +142,15 @@ fun HospitalSearchScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(46.dp)
+                            .size(48.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
+                            .background(CarePrimaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.LocalHospital,
                             contentDescription = "CareFlow",
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = CarePrimary,
                             modifier = Modifier.size(26.dp)
                         )
                     }
@@ -152,10 +161,11 @@ fun HospitalSearchScreen(
                         Text(
                             text = "Hello, ${uiState.currentUser?.name ?: "Patient"} 👋",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Select a hospital to access OPD",
+                            text = "Select a hospital to access OPD queues",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -172,47 +182,67 @@ fun HospitalSearchScreen(
             }
         }
 
-        // Welcome / Search Banner
+        // Calming Hospital Search Hero Banner
         item {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                tonalElevation = 1.dp
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, CardBorderSubtle, RoundedCornerShape(22.dp)),
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(CarePrimary)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "FIND HOSPITAL & OPD CENTER",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = CarePrimary,
+                            letterSpacing = 1.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
                     Text(
-                        text = "🏥 Find Hospital & OPD Center",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Search by hospital name, city, or medical problem/diagnosis to view live token queues and book doctor consultations.",
+                        text = "Search by hospital name, city, or your medical symptom to view live queues and book consultation tokens.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Search input
+                    // Search input with clean porcelain container
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
-                        placeholder = { Text("Search hospital, city, or problem...", fontSize = 13.sp) },
+                        placeholder = { Text("Search hospital name, city, or medical problem...", fontSize = 13.sp) },
                         leadingIcon = {
-                            Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.Default.Search, contentDescription = "Search", tint = CarePrimary)
                         },
                         trailingIcon = {
                             if (searchQuery.isNotEmpty()) {
                                 IconButton(onClick = { searchQuery = "" }) {
-                                    Icon(Icons.Default.Clear, contentDescription = "Clear")
+                                    Icon(Icons.Default.Clear, contentDescription = "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         },
                         singleLine = true,
                         shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                            focusedBorderColor = CarePrimary,
+                            unfocusedBorderColor = CardBorderSubtle
+                        ),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -223,7 +253,7 @@ fun HospitalSearchScreen(
         item {
             Column {
                 Text(
-                    text = "COMMON PROBLEMS & SPECIALTIES",
+                    text = "SELECT MEDICAL PROBLEM OR SPECIALTY",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
@@ -244,17 +274,22 @@ fun HospitalSearchScreen(
                             onClick = {
                                 selectedCategoryIndex = index
                                 if (index != 0 && problem.keywords.isNotEmpty()) {
-                                    // When a symptom is clicked, also update search query to guide user
                                     searchQuery = problem.keywords.first()
                                 } else if (index == 0) {
                                     searchQuery = ""
                                 }
                             },
-                            label = { Text(problem.title, fontSize = 12.sp) },
-                            shape = RoundedCornerShape(10.dp),
+                            label = { Text(problem.title, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium) },
+                            shape = RoundedCornerShape(12.dp),
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                selectedLabelColor = MaterialTheme.colorScheme.primary
+                                selectedContainerColor = CarePrimaryContainer,
+                                selectedLabelColor = CarePrimary,
+                                containerColor = Color.White
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = isSelected,
+                                borderColor = if (isSelected) CarePrimary else CardBorderSubtle
                             )
                         )
                     }
@@ -283,27 +318,39 @@ fun HospitalSearchScreen(
         if (filteredHospitals.isEmpty()) {
             item {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, CardBorderSubtle, RoundedCornerShape(20.dp)),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(28.dp),
+                            .padding(32.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(
-                            imageVector = if (uiState.hospitals.isEmpty()) Icons.Default.LocalHospital else Icons.Default.SearchOff,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.size(54.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(CarePrimaryContainer.copy(alpha = 0.5f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (uiState.hospitals.isEmpty()) Icons.Default.LocalHospital else Icons.Default.SearchOff,
+                                contentDescription = null,
+                                tint = CarePrimary,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(14.dp))
                         Text(
                             text = if (uiState.hospitals.isEmpty()) "No Hospitals Registered Yet" else "No matching hospitals found",
                             fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.titleMedium
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
@@ -318,13 +365,13 @@ fun HospitalSearchScreen(
                         )
 
                         if (searchQuery.isNotEmpty() || selectedCategoryIndex != 0) {
-                            Spacer(modifier = Modifier.height(14.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
                             OutlinedButton(
                                 onClick = {
                                     searchQuery = ""
                                     selectedCategoryIndex = 0
                                 },
-                                shape = RoundedCornerShape(10.dp)
+                                shape = RoundedCornerShape(12.dp)
                             ) {
                                 Text("Clear Filters", fontWeight = FontWeight.Bold)
                             }
@@ -351,9 +398,10 @@ private fun HospitalCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onSelectHospital() },
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            .clickable { onSelectHospital() }
+            .border(1.dp, CardBorderSubtle, RoundedCornerShape(20.dp)),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
@@ -363,32 +411,43 @@ private fun HospitalCard(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.primaryContainer),
+                        .size(52.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(CarePrimaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Business,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(28.dp)
+                        tint = CarePrimary,
+                        modifier = Modifier.size(30.dp)
                     )
                 }
 
                 Spacer(modifier = Modifier.width(14.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = hospital.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = hospital.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Default.Verified,
+                            contentDescription = "Verified Hospital",
+                            tint = CarePrimary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+
                     if (hospital.opdName.isNotBlank()) {
                         Text(
-                            text = "OPD: ${hospital.opdName}",
+                            text = "OPD Complex: ${hospital.opdName}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = CarePrimary,
                             fontWeight = FontWeight.Medium
                         )
                     }
@@ -446,11 +505,11 @@ private fun HospitalCard(
                 onClick = onSelectHospital,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(44.dp),
+                    .height(46.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                colors = ButtonDefaults.buttonColors(containerColor = CarePrimary)
             ) {
-                Text("Select Hospital & Enter OPD", fontWeight = FontWeight.Bold)
+                Text("Select Hospital & Enter OPD", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 Spacer(modifier = Modifier.width(8.dp))
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,

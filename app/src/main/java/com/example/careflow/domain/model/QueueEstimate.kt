@@ -11,5 +11,7 @@ data class QueueEstimate(
     val tokensAhead: Int,
     val estimatedWaitMinutes: Int,
     val queueStatus: QueueStatus,
-    val isYourTurn: Boolean
+    val isYourTurn: Boolean,
+    val currentCallingToken: Int = currentServingToken,
+    val roomNumber: String = "102"
 )

@@ -14,14 +14,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LocalHospital
+import androidx.compose.material.icons.filled.MeetingRoom
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -38,11 +42,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.careflow.domain.model.QueueStatus
+import com.example.careflow.domain.model.AppointmentStatus
+import com.example.careflow.presentation.components.DigitalTokenPass
 import com.example.careflow.presentation.components.StatCard
-import com.example.careflow.presentation.components.TokenBadge
+import com.example.careflow.theme.CardBorderSubtle
+import com.example.careflow.theme.CareBackground
+import com.example.careflow.theme.CarePrimary
+import com.example.careflow.theme.CarePrimaryContainer
 import com.example.careflow.theme.QueueActiveGreen
-import com.example.careflow.theme.QueueServingCyan
 import com.example.careflow.theme.QueueWaitingAmber
 
 @Composable
@@ -53,47 +60,52 @@ fun QueueTrackerScreen(
 ) {
     val estimate = uiState.activeQueueEstimate
     val apt = uiState.activeTrackingAppointment
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = modifier
             .fillMaxSize()
+            .background(CareBackground)
+            .verticalScroll(scrollState)
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Top Bar
+        // Top Navigation Bar
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBackClick) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CarePrimary)
             }
             Spacer(modifier = Modifier.width(8.dp))
             Column {
                 Text(
                     text = "Live Queue Tracker",
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Real-time updates directly from doctor's desk",
+                    text = "Synchronized in real time with doctor's chamber",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         if (estimate != null) {
-            // Live Status Header Banner
+            // "Your Turn" Announcement Banner
             AnimatedVisibility(visible = estimate.isYourTurn) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 16.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = QueueActiveGreen)
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = QueueActiveGreen),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
@@ -103,19 +115,19 @@ fun QueueTrackerScreen(
                             imageVector = Icons.Default.NotificationsActive,
                             contentDescription = null,
                             tint = Color.White,
-                            modifier = Modifier.size(32.dp)
+                            modifier = Modifier.size(36.dp)
                         )
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(14.dp))
                         Column {
                             Text(
-                                text = "🔔 IT'S YOUR TURN!",
+                                text = "🔔 YOUR TURN IS ACTIVE!",
                                 fontWeight = FontWeight.ExtraBold,
                                 color = Color.White,
                                 fontSize = 16.sp
                             )
                             Text(
-                                text = "Please enter Consultation Room 1 now.",
-                                color = Color.White.copy(alpha = 0.9f),
+                                text = "Please enter Consultation Room ${estimate.roomNumber.ifBlank { "102" }} now.",
+                                color = Color.White.copy(alpha = 0.95f),
                                 fontSize = 13.sp
                             )
                         }
@@ -123,98 +135,20 @@ fun QueueTrackerScreen(
                 }
             }
 
-            // Doctor Info Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .clip(CircleShape)
-                                .background(if (estimate.queueStatus == QueueStatus.ACTIVE) QueueActiveGreen else QueueWaitingAmber)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = if (estimate.queueStatus == QueueStatus.ACTIVE) "OPD CONSULTATION IN PROGRESS" else "QUEUE PAUSED",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = if (estimate.queueStatus == QueueStatus.ACTIVE) QueueActiveGreen else QueueWaitingAmber
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Dr. ${estimate.doctorName}",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Today's OPD Queue (${estimate.date})",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Big Tokens Comparison
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Current Token
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "NOW SERVING",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            TokenBadge(
-                                tokenNumber = estimate.currentServingToken,
-                                isHighlighted = false,
-                                label = "CURRENT"
-                            )
-                        }
-
-                        Text(
-                            text = "➔",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.outline
-                        )
-
-                        // Patient Token
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "YOUR TOKEN",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            TokenBadge(
-                                tokenNumber = estimate.patientToken,
-                                isHighlighted = estimate.isYourTurn,
-                                label = "YOU"
-                            )
-                        }
-                    }
-                }
-            }
+            // Digital OPD Token Pass Card
+            DigitalTokenPass(
+                hospitalName = uiState.selectedHospital?.name ?: "Hospital OPD",
+                opdRoom = "Chamber ${estimate.roomNumber.ifBlank { "Room 102" }}",
+                doctorName = "Dr. ${estimate.doctorName}",
+                tokenNumber = estimate.patientToken,
+                currentCallingToken = estimate.currentCallingToken,
+                estimatedWaitMinutes = estimate.estimatedWaitMinutes,
+                status = apt?.status ?: AppointmentStatus.WAITING
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Metrics Grid
+            // Clinical Queue Metrics
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -222,54 +156,103 @@ fun QueueTrackerScreen(
                 StatCard(
                     title = "Patients Ahead",
                     value = "${estimate.tokensAhead}",
-                    subtitle = if (estimate.tokensAhead == 0) "You are next!" else "In line",
+                    subtitle = if (estimate.tokensAhead == 0) "You are next in line!" else "Ahead in queue",
                     icon = Icons.Default.People,
                     modifier = Modifier.weight(1f)
                 )
 
                 StatCard(
                     title = "Estimated Wait",
-                    value = "~${estimate.estimatedWaitMinutes}m",
-                    subtitle = "Based on 15m/opd",
+                    value = "~${estimate.estimatedWaitMinutes} mins",
+                    subtitle = "Based on OPD pacing",
                     icon = Icons.Default.Timer,
                     modifier = Modifier.weight(1f)
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Guidance Note
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+            // Guidance & Reassurance Card
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, CardBorderSubtle, RoundedCornerShape(18.dp)),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(14.dp),
+                    modifier = Modifier.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Default.Timer,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(CarePrimaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = CarePrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Relax in the Waiting Area",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "No need to stand in crowded corridors! This tracker updates automatically the moment the doctor calls your token number.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        } else {
+            // Empty State
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 60.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .background(CarePrimaryContainer.copy(alpha = 0.5f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LocalHospital,
+                            contentDescription = null,
+                            tint = CarePrimary,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
                     Text(
-                        text = "You do not need to wait in crowded corridors! Relax in the waiting area; this screen updates automatically the moment the doctor calls the next token.",
+                        text = "No Active Queue to Track",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Please select a doctor and book an OPD token first.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            }
-        } else {
-            // No Active Queue
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    text = "No active queue to track.\nPlease book an appointment first.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
     }

@@ -1,64 +1,41 @@
 package com.example.careflow.theme
 
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
 
-private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryTealDark,
-    onPrimary = OnPrimaryTealDark,
-    primaryContainer = PrimaryContainerTealDark,
-    onPrimaryContainer = OnPrimaryContainerTealDark,
-    secondary = SecondarySlateDark,
-    onSecondary = OnSecondarySlateDark,
-    secondaryContainer = SecondaryContainerSlateDark,
-    onSecondaryContainer = OnSecondaryContainerSlateDark,
-    surface = SurfaceDark,
-    onSurface = OnSurfaceDark,
-    surfaceVariant = SurfaceVariantDark,
-    onSurfaceVariant = OnSurfaceVariantDark,
-    background = BackgroundDark
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = PrimaryTeal,
-    onPrimary = OnPrimaryTeal,
-    primaryContainer = PrimaryContainerTeal,
-    onPrimaryContainer = OnPrimaryContainerTeal,
-    secondary = SecondarySlate,
-    onSecondary = OnSecondarySlate,
-    secondaryContainer = SecondaryContainerSlate,
-    onSecondaryContainer = OnSecondaryContainerSlate,
-    surface = SurfaceLight,
-    onSurface = OnSurfaceLight,
-    surfaceVariant = SurfaceVariantLight,
-    onSurfaceVariant = OnSurfaceVariantLight,
-    background = BackgroundLight
+private val CalmHospitalLightColorScheme = lightColorScheme(
+    primary = CarePrimary,
+    onPrimary = CareOnPrimary,
+    primaryContainer = CarePrimaryContainer,
+    onPrimaryContainer = CareOnPrimaryContainer,
+    secondary = CareSecondary,
+    onSecondary = CareOnSecondary,
+    secondaryContainer = CareSecondaryContainer,
+    onSecondaryContainer = CareOnSecondaryContainer,
+    tertiary = CareTertiary,
+    onTertiary = CareOnTertiary,
+    tertiaryContainer = CareTertiaryContainer,
+    onTertiaryContainer = CareOnTertiaryContainer,
+    surface = CareSurface,
+    onSurface = CareOnSurface,
+    surfaceVariant = CareSurfaceVariant,
+    onSurfaceVariant = CareOnSurfaceVariant,
+    background = CareBackground,
+    onBackground = CareOnBackground,
+    outline = CareOutline,
+    outlineVariant = CareOutlineVariant,
+    error = QueueCancelledRed
 )
 
 @Composable
 fun CareFlowTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = false, // Enforce calm hospital light theme for clear medical readability
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = CalmHospitalLightColorScheme,
         typography = Typography,
         content = content
     )

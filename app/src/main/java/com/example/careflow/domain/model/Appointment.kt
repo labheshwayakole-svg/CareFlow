@@ -21,6 +21,7 @@ data class Appointment(
     val doctorId: String,
     val doctorName: String,
     val hospitalId: String = "",
+    val hospitalName: String = "",
     val departmentId: String = "",
     val departmentName: String,
     val date: String, // Format: YYYY-MM-DD
