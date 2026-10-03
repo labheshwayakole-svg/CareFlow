@@ -18,20 +18,68 @@ class DoctorRepositoryImpl(
     private val dispatchers: DispatcherProvider = DefaultDispatcherProvider()
 ) : DoctorRepository {
 
-    override fun observeDepartments(hospitalId: String?): Flow<List<Department>> =
-        firebaseDataSource.observeDepartments(hospitalId).flowOn(dispatchers.io)
+    override fun observeDepartments(hospitalId: String?): Flow<List<Department>> = kotlinx.coroutines.flow.flow {
+        val local = if (hospitalId.isNullOrBlank()) {
+            dataStore.departments.value
+        } else {
+            dataStore.departments.value.filter { it.hospitalId == hospitalId }
+        }
+        if (local.isNotEmpty()) emit(local)
+        try {
+            firebaseDataSource.observeDepartments(hospitalId).collect { fbList ->
+                if (fbList.isNotEmpty()) {
+                    fbList.forEach { dataStore.addDepartment(it) }
+                    emit(fbList)
+                } else if (local.isNotEmpty()) {
+                    emit(local)
+                } else {
+                    emit(emptyList())
+                }
+            }
+        } catch (_: Exception) {
+            if (local.isNotEmpty()) emit(local)
+        }
+    }.flowOn(dispatchers.io)
 
     override fun observeDoctors(
         hospitalId: String?,
         departmentId: String?,
         query: String?
-    ): Flow<List<Doctor>> =
-        firebaseDataSource.observeDoctors(hospitalId, departmentId, query).flowOn(dispatchers.io)
+    ): Flow<List<Doctor>> = kotlinx.coroutines.flow.flow {
+        fun filterLocal(): List<Doctor> {
+            return dataStore.doctors.value.filter { doc ->
+                val matchesHospital = hospitalId.isNullOrBlank() || doc.hospitalId == hospitalId
+                val matchesDept = departmentId.isNullOrBlank() || doc.departmentId == departmentId
+                val matchesQuery = query.isNullOrBlank() ||
+                        doc.name.contains(query, ignoreCase = true) ||
+                        doc.specialization.contains(query, ignoreCase = true) ||
+                        doc.departmentName.contains(query, ignoreCase = true)
+                matchesHospital && matchesDept && matchesQuery
+            }
+        }
+        val local = filterLocal()
+        if (local.isNotEmpty()) emit(local)
+        try {
+            firebaseDataSource.observeDoctors(hospitalId, departmentId, query).collect { fbList ->
+                if (fbList.isNotEmpty()) {
+                    fbList.forEach { dataStore.addDoctor(it) }
+                    emit(fbList)
+                } else if (local.isNotEmpty()) {
+                    emit(local)
+                } else {
+                    emit(emptyList())
+                }
+            }
+        } catch (_: Exception) {
+            if (local.isNotEmpty()) emit(local)
+        }
+    }.flowOn(dispatchers.io)
 
     override suspend fun getDoctorById(doctorId: String): Resource<Doctor> = withContext(dispatchers.io) {
         try {
             val doc = firebaseDataSource.getDoctorById(doctorId)
             if (doc != null) {
+                dataStore.addDoctor(doc)
                 Resource.Success(doc)
             } else {
                 val local = dataStore.doctors.value.find { it.id == doctorId }
@@ -47,6 +95,7 @@ class DoctorRepositoryImpl(
         try {
             val doc = firebaseDataSource.getDoctorByUserId(userId)
             if (doc != null) {
+                dataStore.addDoctor(doc)
                 return@withContext Resource.Success(doc)
             }
         } catch (_: Exception) {}
@@ -60,12 +109,23 @@ class DoctorRepositoryImpl(
         if (!curEmail.isNullOrBlank()) {
             val matchedEmail = dataStore.doctors.value.find { it.loginEmail.equals(curEmail, ignoreCase = true) }
             if (matchedEmail != null) return@withContext Resource.Success(matchedEmail)
+
+            // Also check Firestore for doctors matching loginEmail
+            val allFbDocs = firebaseDataSource.getDoctors()
+            val fbMatch = allFbDocs.find { it.loginEmail.equals(curEmail, ignoreCase = true) }
+            if (fbMatch != null) {
+                dataStore.addDoctor(fbMatch)
+                return@withContext Resource.Success(fbMatch)
+            }
         }
 
-        // If the user used the direct Doctor role button and doctors have been created in the hospital
+        // If the user used doctor role button and doctors have been created in the hospital
         if (userId == "doctor_user_01" || userId.startsWith("doctor_")) {
-            val createdDoctor = dataStore.doctors.value.firstOrNull()
-            if (createdDoctor != null) return@withContext Resource.Success(createdDoctor)
+            val createdDoctor = dataStore.doctors.value.firstOrNull() ?: firebaseDataSource.getDoctors().firstOrNull()
+            if (createdDoctor != null) {
+                dataStore.addDoctor(createdDoctor)
+                return@withContext Resource.Success(createdDoctor)
+            }
         }
 
         Resource.Error("Doctor profile not found.")
@@ -79,6 +139,17 @@ class DoctorRepositoryImpl(
         } catch (e: Exception) {
             dataStore.addDoctor(doctor)
             Resource.Success(doctor)
+        }
+    }
+
+    override suspend fun deleteDoctor(doctorId: String): Resource<Unit> = withContext(dispatchers.io) {
+        try {
+            firebaseDataSource.deleteDoctor(doctorId)
+            dataStore.deleteDoctor(doctorId)
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            dataStore.deleteDoctor(doctorId)
+            Resource.Success(Unit)
         }
     }
 

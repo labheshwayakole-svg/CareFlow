@@ -21,13 +21,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.MeetingRoom
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -44,6 +47,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.careflow.domain.model.Appointment
@@ -57,6 +61,20 @@ import com.example.careflow.theme.CarePrimaryContainer
 import com.example.careflow.theme.PastelAmber
 import com.example.careflow.theme.PastelMint
 import com.example.careflow.theme.PastelSky
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import com.example.careflow.theme.PulseCrimsonDark
+import com.example.careflow.theme.PulseRed
+import com.example.careflow.theme.PulseRedBright
+import com.example.careflow.theme.PulseCoral
+import com.example.careflow.theme.PulseRoseBg
+import com.example.careflow.theme.PulseRoseBorder
+import com.example.careflow.theme.PulseRoseText
+import com.example.careflow.theme.PulseShadow
+import com.example.careflow.theme.PulseLiveGreen
+import com.example.careflow.theme.PulseLiveGreenBg
+import com.example.careflow.theme.PulseLiveGreenBorder
 import com.example.careflow.theme.QueueActiveGreen
 import com.example.careflow.theme.QueueCancelledRed
 import com.example.careflow.theme.QueueServingCyan
@@ -124,8 +142,11 @@ fun DigitalTokenPass(
     status: AppointmentStatus,
     modifier: Modifier = Modifier
 ) {
-    val isMyTurn = status == AppointmentStatus.CALLED || status == AppointmentStatus.IN_CONSULTATION || currentCallingToken == tokenNumber
-    val tokensAhead = maxOf(0, tokenNumber - currentCallingToken)
+    val isTurnPassed = (currentCallingToken > tokenNumber && tokenNumber > 0) || status == AppointmentStatus.COMPLETED
+    val isTurnOver = isTurnPassed || status == AppointmentStatus.CANCELLED || status == AppointmentStatus.NO_SHOW
+    val isMyTurn = !isTurnOver && (currentCallingToken == tokenNumber || ((status == AppointmentStatus.CALLED || status == AppointmentStatus.IN_CONSULTATION) && (currentCallingToken == 0 || currentCallingToken == tokenNumber)))
+    val effectiveStatus = if (isTurnPassed) AppointmentStatus.COMPLETED else status
+    val tokensAhead = if (isTurnPassed) 0 else maxOf(0, tokenNumber - currentCallingToken)
 
     Card(
         modifier = modifier
@@ -140,7 +161,14 @@ fun DigitalTokenPass(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(if (isMyTurn) QueueActiveGreen.copy(alpha = 0.12f) else CarePrimaryContainer.copy(alpha = 0.5f))
+                    .background(
+                        when {
+                            status == AppointmentStatus.COMPLETED -> QueueActiveGreen.copy(alpha = 0.10f)
+                            status == AppointmentStatus.CANCELLED || status == AppointmentStatus.NO_SHOW -> QueueCancelledRed.copy(alpha = 0.08f)
+                            isMyTurn -> QueueActiveGreen.copy(alpha = 0.12f)
+                            else -> CarePrimaryContainer.copy(alpha = 0.5f)
+                        }
+                    )
                     .padding(horizontal = 18.dp, vertical = 12.dp)
             ) {
                 Row(
@@ -148,11 +176,18 @@ fun DigitalTokenPass(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier.weight(1f, fill = false),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Icon(
                             imageVector = Icons.Default.LocalHospital,
                             contentDescription = null,
-                            tint = if (isMyTurn) QueueActiveGreen else CarePrimary,
+                            tint = when {
+                                status == AppointmentStatus.COMPLETED || isMyTurn -> QueueActiveGreen
+                                status == AppointmentStatus.CANCELLED || status == AppointmentStatus.NO_SHOW -> QueueCancelledRed
+                                else -> CarePrimary
+                            },
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -160,13 +195,18 @@ fun DigitalTokenPass(
                             text = hospitalName.ifBlank { "CareFlow Hospital" },
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
+                    Spacer(modifier = Modifier.width(10.dp))
+
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = Color.White.copy(alpha = 0.9f)
+                        color = Color.White.copy(alpha = 0.95f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, CarePrimary.copy(alpha = 0.2f))
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -180,10 +220,12 @@ fun DigitalTokenPass(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = opdRoom.ifBlank { "OPD Room 102" },
+                                text = opdRoom.ifBlank { "Room 102" },
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = CarePrimary
+                                color = CarePrimary,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
                     }
@@ -214,15 +256,20 @@ fun DigitalTokenPass(
                             text = "#$tokenNumber",
                             fontSize = 36.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = if (isMyTurn) QueueActiveGreen else CarePrimary
+                            color = when {
+                                status == AppointmentStatus.COMPLETED || isMyTurn -> QueueActiveGreen
+                                status == AppointmentStatus.CANCELLED || status == AppointmentStatus.NO_SHOW -> QueueCancelledRed
+                                else -> CarePrimary
+                            }
                         )
                     }
 
                     Column(horizontalAlignment = Alignment.End) {
-                        StatusChip(status = status)
+                        StatusChip(status = effectiveStatus)
                         Spacer(modifier = Modifier.height(4.dp))
+                        val cleanDocName = doctorName.removePrefix("Dr.").removePrefix("Dr. ").trim().let { if (it.isNotBlank()) "Dr. $it" else "Doctor" }
                         Text(
-                            text = "Consulting with $doctorName",
+                            text = "Consulting with $cleanDocName",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -236,7 +283,7 @@ fun DigitalTokenPass(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Queue Progress Bar
+                // Queue Progress Bar & Status
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -247,39 +294,61 @@ fun DigitalTokenPass(
                             modifier = Modifier
                                 .size(8.dp)
                                 .clip(CircleShape)
-                                .background(if (isMyTurn) QueueActiveGreen else QueueServingCyan)
+                                .background(
+                                    when {
+                                        status == AppointmentStatus.COMPLETED || isMyTurn -> QueueActiveGreen
+                                        status == AppointmentStatus.CANCELLED || status == AppointmentStatus.NO_SHOW -> QueueCancelledRed
+                                        else -> QueueServingCyan
+                                    }
+                                )
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Now Calling: Token #$currentCallingToken",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        val (waitIcon, waitColor, waitText) = when {
+                            status == AppointmentStatus.COMPLETED -> Triple(Icons.Default.CheckCircle, QueueActiveGreen, "Consultation Complete")
+                            status == AppointmentStatus.CANCELLED -> Triple(Icons.Default.Cancel, QueueCancelledRed, "Cancelled")
+                            status == AppointmentStatus.NO_SHOW -> Triple(Icons.Default.Warning, QueueWaitingAmber, "No Show")
+                            isMyTurn -> Triple(Icons.Default.AccessTime, QueueActiveGreen, "Proceed to Chamber!")
+                            else -> Triple(Icons.Default.AccessTime, QueueWaitingAmber, "~$estimatedWaitMinutes mins wait")
+                        }
                         Icon(
-                            imageVector = Icons.Default.AccessTime,
+                            imageVector = waitIcon,
                             contentDescription = null,
                             modifier = Modifier.size(14.dp),
-                            tint = QueueWaitingAmber
+                            tint = waitColor
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = if (isMyTurn) "Proceed to Chamber!" else "~$estimatedWaitMinutes mins wait",
+                            text = waitText,
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
-                            color = if (isMyTurn) QueueActiveGreen else QueueWaitingAmber
+                            color = waitColor,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                val progress = if (tokenNumber > 0 && currentCallingToken > 0) {
-                    (currentCallingToken.toFloat() / tokenNumber.toFloat()).coerceIn(0.1f, 1f)
-                } else 0.2f
+                val progress = when {
+                    status == AppointmentStatus.COMPLETED -> 1f
+                    status == AppointmentStatus.CANCELLED || status == AppointmentStatus.NO_SHOW -> 0.05f
+                    tokenNumber > 0 && currentCallingToken > 0 -> {
+                        (currentCallingToken.toFloat() / tokenNumber.toFloat()).coerceIn(0.1f, 1f)
+                    }
+                    else -> 0.2f
+                }
 
                 LinearProgressIndicator(
                     progress = { progress },
@@ -287,7 +356,11 @@ fun DigitalTokenPass(
                         .fillMaxWidth()
                         .height(8.dp)
                         .clip(RoundedCornerShape(4.dp)),
-                    color = if (isMyTurn) QueueActiveGreen else CarePrimary,
+                    color = when {
+                        status == AppointmentStatus.COMPLETED || isMyTurn -> QueueActiveGreen
+                        status == AppointmentStatus.CANCELLED || status == AppointmentStatus.NO_SHOW -> QueueCancelledRed
+                        else -> CarePrimary
+                    },
                     trackColor = CarePrimaryContainer.copy(alpha = 0.5f),
                     strokeCap = StrokeCap.Round
                 )
@@ -295,16 +368,21 @@ fun DigitalTokenPass(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = if (isMyTurn) {
-                        "🟢 Your turn is active! Please enter the doctor's chamber."
-                    } else if (tokensAhead == 1) {
-                        "⚡ You are next in queue! Please wait near the door."
-                    } else {
-                        "⏳ $tokensAhead patients ahead of you in the queue."
+                    text = when {
+                        status == AppointmentStatus.COMPLETED || isTurnPassed -> "✅ Your turn was called earlier / Consultation finished."
+                        status == AppointmentStatus.CANCELLED -> "❌ This token was cancelled."
+                        status == AppointmentStatus.NO_SHOW -> "⚠️ Marked as No-Show. Please visit OPD reception to reschedule."
+                        isMyTurn -> "🟢 Your turn is active! Please enter the doctor's chamber."
+                        tokensAhead == 1 -> "⚡ You are next in queue! Please wait near the door."
+                        else -> "⏳ $tokensAhead patients ahead of you in the queue."
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (isMyTurn) QueueActiveGreen else MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = if (isMyTurn) FontWeight.Bold else FontWeight.Normal
+                    color = when {
+                        status == AppointmentStatus.COMPLETED || isTurnPassed || isMyTurn -> QueueActiveGreen
+                        status == AppointmentStatus.CANCELLED || status == AppointmentStatus.NO_SHOW -> QueueCancelledRed
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    fontWeight = if (isMyTurn || status == AppointmentStatus.COMPLETED || isTurnPassed) FontWeight.Bold else FontWeight.Normal
                 )
             }
         }
@@ -321,7 +399,7 @@ fun DigitalTokenPass(
     DigitalTokenPass(
         hospitalName = appointment.hospitalName.ifBlank { "CareFlow Hospital OPD" },
         opdRoom = "Chamber 102",
-        doctorName = "Dr. ${appointment.doctorName}",
+        doctorName = "Dr. ${appointment.doctorName.removePrefix("Dr.").removePrefix("Dr. ").trim()}",
         tokenNumber = appointment.tokenNumber,
         currentCallingToken = currentServing,
         estimatedWaitMinutes = estimatedWaitMinutes,
@@ -366,7 +444,9 @@ fun StatusChip(
                 text = text,
                 color = textColor,
                 style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                softWrap = false
             )
         }
     }
@@ -465,3 +545,247 @@ fun StatCard(
         }
     }
 }
+
+// =========================================================================
+// HEMOPULSE SIGNATURE COMPONENTS (from hemopulseapp.web.app)
+// =========================================================================
+
+/**
+ * Animated Live Radar Pulse Indicator
+ * Matches .pill-live-dot and .emergency-pulse-indicator from HemoPulse
+ */
+@Composable
+fun LivePulseDot(
+    modifier: Modifier = Modifier,
+    color: Color = PulseRedBright,
+    size: androidx.compose.ui.unit.Dp = 8.dp
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "pulseDot")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.8f,
+        targetValue = 2.2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1400),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "pulseScale"
+    )
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.8f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1400),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "pulseAlpha"
+    )
+
+    Box(
+        modifier = modifier.size(size * 2),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(size * scale)
+                .clip(CircleShape)
+                .background(color.copy(alpha = alpha))
+        )
+        Box(
+            modifier = Modifier
+                .size(size)
+                .clip(CircleShape)
+                .background(color)
+        )
+    }
+}
+
+/**
+ * Signature Live Status Pill
+ * Matches .pill-live-tag and .brand-badge from HemoPulse
+ */
+@Composable
+fun LiveStatusPill(
+    text: String = "",
+    label: String = text,
+    modifier: Modifier = Modifier,
+    isLive: Boolean = true,
+    accentColor: Color = PulseRedBright,
+    backgroundColor: Color = PulseRoseBg,
+    borderColor: Color = PulseRoseBorder
+) {
+    val displayLabel = if (label.isNotBlank()) label else text
+    Surface(
+        modifier = modifier,
+        shape = CircleShape,
+        color = backgroundColor,
+        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            if (isLive) {
+                LivePulseDot(color = accentColor, size = 6.dp)
+            }
+            Text(
+                text = displayLabel,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = accentColor,
+                letterSpacing = 0.5.sp
+            )
+        }
+    }
+}
+
+/**
+ * Signature HemoPulse Gradient Pill Button
+ * Matches .btn-nav-filled, .btn-hero-red, and .primary from HemoPulse
+ */
+@Composable
+fun CarePulseButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    enabled: Boolean = true,
+    isLoading: Boolean = false
+) {
+    val gradientBrush = Brush.horizontalGradient(
+        listOf(PulseCrimsonDark, PulseRed, PulseCoral)
+    )
+
+    Surface(
+        onClick = onClick,
+        enabled = enabled && !isLoading,
+        modifier = modifier
+            .height(48.dp)
+            .shadow(
+                elevation = if (enabled) 6.dp else 0.dp,
+                shape = CircleShape,
+                ambientColor = PulseShadow,
+                spotColor = PulseShadow
+            ),
+        shape = CircleShape,
+        color = Color.Transparent
+    ) {
+        Box(
+            modifier = Modifier
+                .background(if (enabled) gradientBrush else Brush.linearGradient(listOf(Color.LightGray, Color.Gray)))
+                .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
+                .padding(horizontal = 24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = Color.White,
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    if (icon != null) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text(
+                        text = text,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        letterSpacing = 0.3.sp,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Signature HemoPulse Outline Pill Button
+ * Matches .btn-nav-outline and .outline from HemoPulse
+ */
+@Composable
+fun CareOutlinePillButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    textColor: Color = MaterialTheme.colorScheme.onSurface,
+    borderColor: Color = CardBorderSubtle,
+    enabled: Boolean = true
+) {
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.height(44.dp),
+        shape = CircleShape,
+        color = Color.White,
+        border = androidx.compose.foundation.BorderStroke(1.5.dp, borderColor),
+        shadowElevation = 1.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = textColor,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+            }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = textColor,
+                maxLines = 1,
+                softWrap = false
+            )
+        }
+    }
+}
+
+/**
+ * Luminous Glassmorphic Hero Card Container
+ * Matches .hero-card styling from HemoPulse
+ */
+@Composable
+fun LuminousHeroCard(
+    modifier: Modifier = Modifier,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .border(1.dp, Color.White.copy(alpha = 0.9f), RoundedCornerShape(26.dp))
+            .shadow(elevation = 4.dp, shape = RoundedCornerShape(26.dp), spotColor = Color(0x18F04843)),
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            content = content
+        )
+    }
+}
+

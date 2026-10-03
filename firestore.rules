@@ -2,52 +2,49 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
-    // Hospitals: Anyone can read, authenticated admin can manage
+    // Hospitals: Anyone can read OPD directory, can create/update
     match /hospitals/{hospitalId} {
-      allow read: if true;
-      allow write: if isAuthenticated();
+      allow read, write: if true;
     }
 
-    // Departments: Anyone can read (OPD public directory)
+    // Departments: Anyone can read OPD departments
     match /departments/{deptId} {
-      allow read: if true;
-      allow write: if isAuthenticated();
+      allow read, write: if true;
     }
 
     // Doctors: Anyone can read public availability & OPD status
     match /doctors/{doctorId} {
-      allow read: if true;
-      allow write: if isAuthenticated();
+      allow read, write: if true;
     }
 
     // Users: Profiles
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read, write: if true;
     }
 
     // Appointments: Token bookings, consultation status
     match /appointments/{appointmentId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if true;
     }
 
     // Daily Queues: Live token counter, turn tracker, break notices
     match /daily_queues/{queueId} {
-      allow read: if true;
-      allow write: if isAuthenticated();
+      allow read, write: if true;
     }
 
-    // Notifications: 1-hour, 30-min reminders, call alerts, break notices
+    // Notifications: Reminders, call alerts, break notices
     match /notifications/{notificationId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if true;
+    }
+
+    // Doctor Password Reset Requests: OTP sent to admin
+    match /doctor_reset_requests/{requestId} {
+      allow read, write: if true;
+    }
+
+    // Unified Password Resets: 6-digit OTP for Patient, Doctor, Admin
+    match /password_resets/{resetId} {
+      allow read, write: if true;
     }
   }
 }

@@ -1,6 +1,7 @@
 package com.example.careflow.presentation.patient
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.MeetingRoom
@@ -35,20 +37,27 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.careflow.core.notification.CallNotificationService
 import androidx.compose.ui.unit.sp
 import com.example.careflow.domain.model.AppointmentStatus
 import com.example.careflow.presentation.components.DigitalTokenPass
+import com.example.careflow.presentation.components.LiveStatusPill
 import com.example.careflow.presentation.components.StatCard
 import com.example.careflow.theme.CardBorderSubtle
 import com.example.careflow.theme.CareBackground
 import com.example.careflow.theme.CarePrimary
 import com.example.careflow.theme.CarePrimaryContainer
+import com.example.careflow.theme.PulseRed
+import com.example.careflow.theme.PulseRoseBg
+import com.example.careflow.theme.PulseRoseBorder
 import com.example.careflow.theme.QueueActiveGreen
 import com.example.careflow.theme.QueueWaitingAmber
 
@@ -61,6 +70,13 @@ fun QueueTrackerScreen(
     val estimate = uiState.activeQueueEstimate
     val apt = uiState.activeTrackingAppointment
     val scrollState = rememberScrollState()
+    val context = LocalContext.current
+
+    // Instantly stop all call chime audio and clear system notification when tracker is active
+    LaunchedEffect(Unit) {
+        CallNotificationService.stopAlert(context)
+        CallNotificationService.cancelNotification(context)
+    }
 
     Column(
         modifier = modifier
@@ -73,32 +89,45 @@ fun QueueTrackerScreen(
         // Top Navigation Bar
         Row(
             modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBackClick) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CarePrimary)
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBackClick) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CarePrimary)
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Column {
+                    Text(
+                        text = "Live Queue Tracker",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Real-time doctor chamber sync",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
-            Spacer(modifier = Modifier.width(8.dp))
-            Column {
-                Text(
-                    text = "Live Queue Tracker",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Synchronized in real time with doctor's chamber",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+
+            LiveStatusPill(label = "Chamber Sync", isLive = true)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
         if (estimate != null) {
+            val isTurnActive = estimate.isYourTurn &&
+                apt?.status != AppointmentStatus.COMPLETED &&
+                apt?.status != AppointmentStatus.CANCELLED &&
+                apt?.status != AppointmentStatus.NO_SHOW
+
             // "Your Turn" Announcement Banner
-            AnimatedVisibility(visible = estimate.isYourTurn) {
+            AnimatedVisibility(visible = isTurnActive) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -135,11 +164,52 @@ fun QueueTrackerScreen(
                 }
             }
 
+            // Consultation Completed Banner
+            AnimatedVisibility(visible = apt?.status == AppointmentStatus.COMPLETED) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = QueueActiveGreen.copy(alpha = 0.12f)),
+                    border = BorderStroke(1.dp, QueueActiveGreen.copy(alpha = 0.4f)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = QueueActiveGreen,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column {
+                            Text(
+                                text = "CONSULTATION COMPLETED",
+                                fontWeight = FontWeight.ExtraBold,
+                                color = QueueActiveGreen,
+                                fontSize = 15.sp,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                            Text(
+                                text = "Your consultation with Dr. ${estimate.doctorName.removePrefix("Dr.").removePrefix("Dr. ").trim()} is finished.",
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                }
+            }
+
             // Digital OPD Token Pass Card
             DigitalTokenPass(
-                hospitalName = uiState.selectedHospital?.name ?: "Hospital OPD",
+                hospitalName = apt?.hospitalName?.ifBlank { uiState.selectedHospital?.name ?: "Hospital OPD" } ?: uiState.selectedHospital?.name ?: "Hospital OPD",
                 opdRoom = "Chamber ${estimate.roomNumber.ifBlank { "Room 102" }}",
-                doctorName = "Dr. ${estimate.doctorName}",
+                doctorName = "Dr. ${estimate.doctorName.removePrefix("Dr.").removePrefix("Dr. ").trim()}",
                 tokenNumber = estimate.patientToken,
                 currentCallingToken = estimate.currentCallingToken,
                 estimatedWaitMinutes = estimate.estimatedWaitMinutes,
@@ -149,22 +219,23 @@ fun QueueTrackerScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Clinical Queue Metrics
+            val isPassed = (estimate.patientToken < estimate.currentCallingToken && estimate.currentCallingToken > 0) || apt?.status == AppointmentStatus.COMPLETED
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 StatCard(
-                    title = "Patients Ahead",
-                    value = "${estimate.tokensAhead}",
-                    subtitle = if (estimate.tokensAhead == 0) "You are next in line!" else "Ahead in queue",
-                    icon = Icons.Default.People,
+                    title = if (isPassed) "Queue Status" else "Patients Ahead",
+                    value = if (isPassed) "Done" else "${estimate.tokensAhead}",
+                    subtitle = if (isPassed) "Turn concluded" else if (estimate.tokensAhead == 0) "You are next in line!" else "Ahead in queue",
+                    icon = if (isPassed) Icons.Default.CheckCircle else Icons.Default.People,
                     modifier = Modifier.weight(1f)
                 )
 
                 StatCard(
                     title = "Estimated Wait",
-                    value = "~${estimate.estimatedWaitMinutes} mins",
-                    subtitle = "Based on OPD pacing",
+                    value = if (isPassed) "0 mins" else "~${estimate.estimatedWaitMinutes} mins",
+                    subtitle = if (isPassed) "Session concluded" else "Based on OPD pacing",
                     icon = Icons.Default.Timer,
                     modifier = Modifier.weight(1f)
                 )

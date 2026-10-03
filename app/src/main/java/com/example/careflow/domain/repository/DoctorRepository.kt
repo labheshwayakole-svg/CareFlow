@@ -11,6 +11,7 @@ interface DoctorRepository {
     suspend fun getDoctorById(doctorId: String): Resource<Doctor>
     suspend fun getDoctorByUserId(userId: String): Resource<Doctor>
     suspend fun addDoctor(doctor: Doctor): Resource<Doctor>
+    suspend fun deleteDoctor(doctorId: String): Resource<Unit>
     suspend fun updateDoctorAvailability(doctorId: String, isAvailable: Boolean): Resource<Unit>
     suspend fun updateDoctorOpdStatus(doctorId: String, isInOPD: Boolean): Resource<Unit>
     suspend fun updateDoctorBreakStatus(doctorId: String, isOnBreak: Boolean): Resource<Unit>

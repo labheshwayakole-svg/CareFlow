@@ -10,6 +10,8 @@ import com.example.careflow.domain.model.AppointmentStatus
 import com.example.careflow.domain.model.Doctor
 import com.example.careflow.domain.repository.AppointmentRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 
@@ -44,10 +46,8 @@ class AppointmentRepositoryImpl(
                     symptoms = symptoms,
                     estimatedTime = estimatedTime
                 )
-                // Mirror to local data store
-                dataStore.bookAppointmentAtomic(
-                    patientId, patientName, patientPhone, doctor, date, timeSlot, symptoms
-                )
+                // Mirror to local data store without generating duplicate appointment or re-incrementing tokens
+                dataStore.syncAppointments(listOf(apt))
                 return@withContext Resource.Success(apt)
             } catch (_: Exception) {
                 // Fallback to local atomic memory transaction
@@ -67,17 +67,87 @@ class AppointmentRepositoryImpl(
         }
     }
 
-    override fun observeAppointmentsForPatient(patientId: String): Flow<List<Appointment>> =
-        firebaseDataSource.observeAppointmentsForPatient(patientId).flowOn(dispatchers.io)
+    override fun observeAppointmentsForPatient(patientId: String): Flow<List<Appointment>> = kotlinx.coroutines.flow.flow {
+        val local = dataStore.appointments.value.filter { it.patientId == patientId }
+        if (local.isNotEmpty()) emit(local)
+        try {
+            firebaseDataSource.observeAppointmentsForPatient(patientId).collect { fbList ->
+                if (fbList.isNotEmpty()) {
+                    dataStore.syncAppointments(fbList)
+                    emit(fbList)
+                } else if (local.isNotEmpty()) {
+                    emit(local)
+                } else {
+                    emit(emptyList())
+                }
+            }
+        } catch (_: Exception) {
+            if (local.isNotEmpty()) emit(local)
+        }
+    }.flowOn(dispatchers.io)
 
-    override fun observeAppointmentsForDoctor(doctorId: String, date: String): Flow<List<Appointment>> =
-        firebaseDataSource.observeAppointmentsForDoctor(doctorId, date).flowOn(dispatchers.io)
+    override fun observeAppointmentsForDoctor(doctorId: String, date: String): Flow<List<Appointment>> = kotlinx.coroutines.flow.flow {
+        val local = dataStore.appointments.value
+            .filter { it.doctorId == doctorId && (date.isBlank() || it.date == date) }
+            .sortedBy { it.tokenNumber }
+        if (local.isNotEmpty()) emit(local)
+        try {
+            firebaseDataSource.observeAppointmentsForDoctor(doctorId, date).collect { fbList ->
+                if (fbList.isNotEmpty()) {
+                    dataStore.syncAppointments(fbList)
+                    emit(fbList.sortedBy { it.tokenNumber })
+                } else if (local.isNotEmpty()) {
+                    emit(local)
+                } else {
+                    emit(emptyList())
+                }
+            }
+        } catch (_: Exception) {
+            if (local.isNotEmpty()) emit(local)
+        }
+    }.flowOn(dispatchers.io)
 
-    override fun observeAppointmentsForHospital(hospitalId: String, date: String?): Flow<List<Appointment>> =
-        firebaseDataSource.observeAppointmentsForHospital(hospitalId, date).flowOn(dispatchers.io)
+    override fun observeAppointmentsForHospital(hospitalId: String, date: String?): Flow<List<Appointment>> = kotlinx.coroutines.flow.flow {
+        val local = dataStore.appointments.value.filter { apt ->
+            val matchHosp = apt.hospitalId == hospitalId
+            val matchDate = date == null || apt.date == date
+            matchHosp && matchDate
+        }
+        if (local.isNotEmpty()) emit(local)
+        try {
+            firebaseDataSource.observeAppointmentsForHospital(hospitalId, date).collect { fbList ->
+                if (fbList.isNotEmpty()) {
+                    dataStore.syncAppointments(fbList)
+                    emit(fbList)
+                } else if (local.isNotEmpty()) {
+                    emit(local)
+                } else {
+                    emit(emptyList())
+                }
+            }
+        } catch (_: Exception) {
+            if (local.isNotEmpty()) emit(local)
+        }
+    }.flowOn(dispatchers.io)
 
-    override fun observeAllAppointments(): Flow<List<Appointment>> =
-        firebaseDataSource.observeAllAppointments().flowOn(dispatchers.io)
+    override fun observeAllAppointments(): Flow<List<Appointment>> = kotlinx.coroutines.flow.flow {
+        val local = dataStore.appointments.value
+        if (local.isNotEmpty()) emit(local)
+        try {
+            firebaseDataSource.observeAllAppointments().collect { fbList ->
+                if (fbList.isNotEmpty()) {
+                    dataStore.syncAppointments(fbList)
+                    emit(fbList)
+                } else if (local.isNotEmpty()) {
+                    emit(local)
+                } else {
+                    emit(emptyList())
+                }
+            }
+        } catch (_: Exception) {
+            if (local.isNotEmpty()) emit(local)
+        }
+    }.flowOn(dispatchers.io)
 
     override suspend fun cancelAppointment(appointmentId: String): Resource<Unit> = withContext(dispatchers.io) {
         try {

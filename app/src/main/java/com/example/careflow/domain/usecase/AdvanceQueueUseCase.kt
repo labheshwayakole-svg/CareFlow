@@ -25,7 +25,7 @@ class AdvanceQueueUseCase(
                     apt.tokenNumber < updatedQueue.currentToken && apt.status == AppointmentStatus.IN_CONSULTATION -> {
                         appointmentRepository.updateAppointmentStatus(apt.id, AppointmentStatus.COMPLETED)
                     }
-                    apt.tokenNumber == updatedQueue.currentToken && apt.status == AppointmentStatus.BOOKED -> {
+                    apt.tokenNumber == updatedQueue.currentToken && (apt.status == AppointmentStatus.BOOKED || apt.status == AppointmentStatus.WAITING || apt.status == AppointmentStatus.NO_SHOW) -> {
                         appointmentRepository.updateAppointmentStatus(apt.id, AppointmentStatus.IN_CONSULTATION)
                     }
                 }

@@ -168,12 +168,41 @@ class DoctorViewModel(
             // Find next waiting appointment
             val currentToken = _uiState.value.todayQueue?.currentToken ?: 0
             val nextApt = _uiState.value.todayAppointments
-                .filter { it.tokenNumber > currentToken && (it.status == AppointmentStatus.BOOKED || it.status == AppointmentStatus.WAITING) }
+                .filter { it.tokenNumber > currentToken && (it.status == AppointmentStatus.BOOKED || it.status == AppointmentStatus.WAITING || it.status == AppointmentStatus.NO_SHOW) }
                 .minByOrNull { it.tokenNumber }
 
             when (val res = advanceQueueUseCase(doc.id, _uiState.value.todayDate)) {
                 is Resource.Success -> {
                     val updatedQueue = res.data
+                    val calledApt = _uiState.value.todayAppointments.find { it.tokenNumber == updatedQueue.currentToken }
+                        ?: nextApt
+
+                    // Send Real-time notification to the called patient
+                    if (calledApt != null) {
+                        // Complete any previous called/in-consultation appointments so they don't remain stuck in CALLED state
+                        val prevCalled = _uiState.value.todayAppointments.filter {
+                            it.id != calledApt.id && (it.status == AppointmentStatus.CALLED || it.status == AppointmentStatus.IN_CONSULTATION)
+                        }
+                        prevCalled.forEach { prev ->
+                            appointmentRepository.updateAppointmentStatus(prev.id, AppointmentStatus.COMPLETED)
+                        }
+
+                        appointmentRepository.updateAppointmentStatus(calledApt.id, AppointmentStatus.CALLED)
+                        notificationRepository.sendNotification(
+                            Notification(
+                                id = "call_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(6)}",
+                                userId = calledApt.patientId,
+                                title = "It's Your Turn! (Token #${calledApt.tokenNumber})",
+                                body = "Dr. ${doc.name.removePrefix("Dr.").removePrefix("Dr. ").trim()} is calling Token #${calledApt.tokenNumber}. Please proceed into the OPD consultation room.",
+                                type = NotificationType.QUEUE_CALLED,
+                                appointmentId = calledApt.id,
+                                doctorId = doc.id,
+                                hospitalId = doc.hospitalId,
+                                createdAt = System.currentTimeMillis()
+                            )
+                        )
+                    }
+
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -181,27 +210,66 @@ class DoctorViewModel(
                             successMessage = "Calling Token #${updatedQueue.currentToken}"
                         )
                     }
-
-                    // Send Real-time notification to the called patient
-                    if (nextApt != null) {
-                        notificationRepository.sendNotification(
-                            Notification(
-                                id = "notif_${UUID.randomUUID().toString().take(8)}",
-                                userId = nextApt.patientId,
-                                title = "It's Your Turn! (Token #${nextApt.tokenNumber})",
-                                body = "Dr. ${doc.name} is calling Token #${nextApt.tokenNumber}. Please proceed into the OPD consultation room.",
-                                type = NotificationType.QUEUE_CALLED,
-                                appointmentId = nextApt.id,
-                                doctorId = doc.id,
-                                hospitalId = doc.hospitalId
-                            )
-                        )
-                    }
                 }
                 is Resource.Error -> {
                     _uiState.update { it.copy(isLoading = false, errorMessage = res.message) }
                 }
                 is Resource.Loading -> {}
+            }
+        }
+    }
+
+    fun callPreviousPatient() {
+        val doc = _uiState.value.doctor ?: return
+        val currentToken = _uiState.value.todayQueue?.currentToken ?: 0
+        if (currentToken <= 1) return
+
+        val prevApt = _uiState.value.todayAppointments
+            .filter { it.tokenNumber < currentToken }
+            .maxByOrNull { it.tokenNumber }
+
+        val targetToken = prevApt?.tokenNumber ?: (currentToken - 1)
+        val targetPatientId = prevApt?.patientId ?: ""
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            val res = queueRepository.callPatient(
+                doctorId = doc.id,
+                date = _uiState.value.todayDate,
+                tokenNumber = targetToken,
+                patientId = targetPatientId
+            )
+
+            if (res is Resource.Success) {
+                if (prevApt != null) {
+                    appointmentRepository.updateAppointmentStatus(prevApt.id, AppointmentStatus.CALLED)
+                }
+
+                if (targetPatientId.isNotBlank()) {
+                    notificationRepository.sendNotification(
+                        Notification(
+                            id = "call_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(6)}",
+                            userId = targetPatientId,
+                            title = "It's Your Turn! (Token #${targetToken})",
+                            body = "Dr. ${doc.name} is calling Token #${targetToken}. Please proceed into the OPD consultation room.",
+                            type = NotificationType.QUEUE_CALLED,
+                            appointmentId = prevApt?.id,
+                            doctorId = doc.id,
+                            hospitalId = doc.hospitalId,
+                            createdAt = System.currentTimeMillis()
+                        )
+                    )
+                }
+
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        todayQueue = res.data,
+                        successMessage = "Re-called Previous Patient (Token #$targetToken)"
+                    )
+                }
+            } else if (res is Resource.Error) {
+                _uiState.update { it.copy(isLoading = false, errorMessage = res.message) }
             }
         }
     }
@@ -218,17 +286,26 @@ class DoctorViewModel(
             )
 
             if (res is Resource.Success) {
+                // Complete any previous called/in-consultation appointments so they don't remain stuck in CALLED state
+                val prevCalled = _uiState.value.todayAppointments.filter {
+                    it.id != appointment.id && (it.status == AppointmentStatus.CALLED || it.status == AppointmentStatus.IN_CONSULTATION)
+                }
+                prevCalled.forEach { prev ->
+                    appointmentRepository.updateAppointmentStatus(prev.id, AppointmentStatus.COMPLETED)
+                }
+
                 appointmentRepository.updateAppointmentStatus(appointment.id, AppointmentStatus.CALLED)
                 notificationRepository.sendNotification(
                     Notification(
-                        id = "notif_${UUID.randomUUID().toString().take(8)}",
+                        id = "call_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(6)}",
                         userId = appointment.patientId,
                         title = "It's Your Turn! (Token #${appointment.tokenNumber})",
-                        body = "Dr. ${doc.name} is calling Token #${appointment.tokenNumber}. Please step into the OPD room.",
+                        body = "Dr. ${doc.name.removePrefix("Dr.").removePrefix("Dr. ").trim()} is calling Token #${appointment.tokenNumber}. Please step into the OPD room.",
                         type = NotificationType.QUEUE_CALLED,
                         appointmentId = appointment.id,
                         doctorId = doc.id,
-                        hospitalId = doc.hospitalId
+                        hospitalId = doc.hospitalId,
+                        createdAt = System.currentTimeMillis()
                     )
                 )
                 _uiState.update {
@@ -293,6 +370,11 @@ class DoctorViewModel(
         val doc = _uiState.value.doctor ?: return
         viewModelScope.launch {
             queueRepository.resetQueue(doc.id, _uiState.value.todayDate)
+            for (apt in _uiState.value.todayAppointments) {
+                if (apt.status == AppointmentStatus.CALLED || apt.status == AppointmentStatus.IN_CONSULTATION) {
+                    appointmentRepository.updateAppointmentStatus(apt.id, AppointmentStatus.BOOKED)
+                }
+            }
             _uiState.update { it.copy(successMessage = "Queue reset for today.") }
         }
     }

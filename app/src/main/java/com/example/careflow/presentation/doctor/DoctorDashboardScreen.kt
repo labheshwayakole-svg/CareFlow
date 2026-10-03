@@ -1,8 +1,11 @@
 package com.example.careflow.presentation.doctor
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,13 +24,20 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.NavigateBefore
 import androidx.compose.material.icons.automirrored.filled.NavigateNext
+import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.FreeBreakfast
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MedicalServices
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
@@ -64,11 +74,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.careflow.domain.model.Appointment
 import com.example.careflow.domain.model.AppointmentStatus
+import com.example.careflow.presentation.components.CarePulseButton
+import com.example.careflow.presentation.components.LiveStatusPill
 import com.example.careflow.presentation.components.StatCard
 import com.example.careflow.presentation.components.StatusChip
 import com.example.careflow.presentation.components.TokenBadge
@@ -84,6 +100,10 @@ import com.example.careflow.theme.CareTextSecondary
 import com.example.careflow.theme.PastelMint
 import com.example.careflow.theme.PastelPeach
 import com.example.careflow.theme.PastelSky
+import com.example.careflow.theme.PulseCrimsonDark
+import com.example.careflow.theme.PulseRed
+import com.example.careflow.theme.PulseRoseBg
+import com.example.careflow.theme.PulseRoseBorder
 import com.example.careflow.theme.QueueActiveGreen
 import com.example.careflow.theme.QueueActiveGreenContainer
 import com.example.careflow.theme.QueueCancelledRed
@@ -98,9 +118,10 @@ import com.example.careflow.theme.QueueWaitingAmberContainer
 fun DoctorDashboardScreen(
     uiState: DoctorUiState,
     onCallNextPatient: () -> Unit,
+    onCallPreviousPatient: () -> Unit = {},
     onCallSpecificPatient: (Appointment) -> Unit,
     onCompleteConsultation: (String) -> Unit,
-    onMarkNoShow: () -> Unit,
+    onMarkNoShow: () -> Unit = {},
     onToggleOpdPresence: (Boolean) -> Unit,
     onToggleBreakMode: (Boolean, String) -> Unit,
     onToggleAvailability: (Boolean) -> Unit,
@@ -113,8 +134,10 @@ fun DoctorDashboardScreen(
     val queue = uiState.todayQueue
     val currentPatient = uiState.currentServingAppointment
     var visitNotes by remember { mutableStateOf("") }
+    var selectedPatientAppointment by remember { mutableStateOf<Appointment?>(null) }
     var showBreakDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
+    var showLogoutConfirmDialog by remember { mutableStateOf(false) }
     var breakMessage by remember { mutableStateOf("15-minute tea break") }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -159,7 +182,10 @@ fun DoctorDashboardScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Box(
                                 modifier = Modifier
                                     .size(46.dp)
@@ -174,27 +200,53 @@ fun DoctorDashboardScreen(
                                 )
                             }
                             Spacer(modifier = Modifier.width(12.dp))
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "Doctor Workstation",
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold,
-                                    color = CareTextPrimary
+                                    color = CareTextPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
                                     text = "CareFlow Clinical Portal",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = CarePrimary
+                                    color = CarePrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
 
-                        IconButton(onClick = onLogoutClick) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                                contentDescription = "Logout",
-                                tint = MaterialTheme.colorScheme.error
-                            )
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFFFEE2E2),
+                            border = BorderStroke(1.dp, Color(0xFFFECACA)),
+                            modifier = Modifier.clickable { showLogoutConfirmDialog = true }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                                    contentDescription = "Logout",
+                                    tint = Color(0xFFDC2626),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "Logout",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFDC2626),
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
                         }
                     }
                 }
@@ -240,15 +292,11 @@ fun DoctorDashboardScreen(
                                 color = CareTextMuted
                             )
                             Spacer(modifier = Modifier.height(18.dp))
-                            Button(
+                            CarePulseButton(
+                                text = "Switch Role / Logout",
                                 onClick = onLogoutClick,
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = CarePrimary)
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Switch Role / Logout", color = Color.White)
-                            }
+                                icon = Icons.AutoMirrored.Filled.ExitToApp
+                            )
                         }
                     }
                 }
@@ -269,29 +317,35 @@ fun DoctorDashboardScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Box(
                                     modifier = Modifier
                                         .size(48.dp)
                                         .clip(RoundedCornerShape(14.dp))
-                                        .background(PastelSky),
+                                        .background(PulseRoseBg)
+                                        .border(1.dp, PulseRoseBorder, RoundedCornerShape(14.dp)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.MedicalServices,
                                         contentDescription = null,
                                         tint = CarePrimary,
-                                        modifier = Modifier.size(26.dp)
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column {
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
                                             text = doctor.name,
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
-                                            color = CareTextPrimary
+                                            color = CareTextPrimary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Icon(
@@ -305,22 +359,46 @@ fun DoctorDashboardScreen(
                                         text = "${doctor.specialization} • ${doctor.departmentName}",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = CarePrimary,
-                                        fontWeight = FontWeight.SemiBold
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
-                                    Text(
-                                        text = "${doctor.qualification} • ${doctor.hospitalName}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = CareTextMuted
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    LiveStatusPill(
+                                        label = if (doctor.isInOPD && !doctor.isOnBreak) "In OPD" else if (doctor.isOnBreak) "On Break" else "Offline",
+                                        isLive = doctor.isInOPD && !doctor.isOnBreak
                                     )
                                 }
                             }
 
-                            IconButton(onClick = onLogoutClick) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                                    contentDescription = "Logout",
-                                    tint = MaterialTheme.colorScheme.error
-                                )
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = Color(0xFFFEE2E2),
+                                border = BorderStroke(1.dp, Color(0xFFFECACA)),
+                                modifier = Modifier.clickable { showLogoutConfirmDialog = true }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                                        contentDescription = "Logout",
+                                        tint = Color(0xFFDC2626),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        text = "Logout",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFDC2626),
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                }
                             }
                         }
                     }
@@ -472,23 +550,58 @@ fun DoctorDashboardScreen(
 
                             Spacer(modifier = Modifier.height(18.dp))
 
-                            // Next Patient Action Button
-                            Button(
-                                onClick = onCallNextPatient,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(54.dp),
-                                shape = RoundedCornerShape(14.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = CarePrimary),
-                                enabled = doctor.isInOPD && !doctor.isOnBreak
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.NavigateNext, contentDescription = null, tint = Color.White)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Call Next Patient (#${(queue?.currentToken ?: 0) + 1})",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp,
-                                    color = Color.White
+                            // Action Buttons: Call Previous & Call Next
+                            val currentToken = queue?.currentToken ?: 0
+                            if (currentToken > 1) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = onCallPreviousPatient,
+                                        shape = RoundedCornerShape(16.dp),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(52.dp),
+                                        enabled = doctor.isInOPD && !doctor.isOnBreak,
+                                        border = BorderStroke(1.5.dp, CarePrimary)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.NavigateBefore,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp),
+                                            tint = CarePrimary
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "Call Prev (#${currentToken - 1})",
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            fontWeight = FontWeight.Bold,
+                                            color = CarePrimary,
+                                            fontSize = 13.sp
+                                        )
+                                    }
+
+                                    CarePulseButton(
+                                        text = "Call Next (#${currentToken + 1})",
+                                        onClick = onCallNextPatient,
+                                        icon = Icons.AutoMirrored.Filled.NavigateNext,
+                                        enabled = doctor.isInOPD && !doctor.isOnBreak,
+                                        modifier = Modifier
+                                            .weight(1.2f)
+                                            .height(52.dp)
+                                    )
+                                }
+                            } else {
+                                CarePulseButton(
+                                    text = "Call Next Patient (#${currentToken + 1})",
+                                    onClick = onCallNextPatient,
+                                    icon = Icons.AutoMirrored.Filled.NavigateNext,
+                                    enabled = doctor.isInOPD && !doctor.isOnBreak,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(52.dp)
                                 )
                             }
                         }
@@ -516,11 +629,18 @@ fun DoctorDashboardScreen(
                         ) {
                             Column(modifier = Modifier.padding(18.dp)) {
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable { selectedPatientAppointment = currentPatient }
+                                        .padding(4.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
                                         Box(
                                             modifier = Modifier
                                                 .size(44.dp)
@@ -537,12 +657,21 @@ fun DoctorDashboardScreen(
                                         }
                                         Spacer(modifier = Modifier.width(12.dp))
                                         Column {
-                                            Text(
-                                                text = currentPatient.patientName,
-                                                fontWeight = FontWeight.Bold,
-                                                style = MaterialTheme.typography.titleMedium,
-                                                color = CareTextPrimary
-                                            )
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = currentPatient.patientName,
+                                                    fontWeight = FontWeight.Bold,
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    color = CareTextPrimary
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Icon(
+                                                    imageVector = Icons.Default.Info,
+                                                    contentDescription = "View patient profile",
+                                                    tint = CarePrimary,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Icon(
                                                     imageVector = Icons.Default.Phone,
@@ -578,14 +707,16 @@ fun DoctorDashboardScreen(
 
                                 // Patient Symptoms Box
                                 Surface(
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { selectedPatientAppointment = currentPatient },
                                     color = CareSurfaceVariant,
                                     shape = RoundedCornerShape(12.dp),
                                     border = androidx.compose.foundation.BorderStroke(1.dp, CardBorderSubtle)
                                 ) {
                                     Column(modifier = Modifier.padding(12.dp)) {
                                         Text(
-                                            text = "Patient Symptoms / Reason for Visit:",
+                                            text = "Patient Symptoms / Reason for Visit (Tap for details):",
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = CarePrimary
@@ -620,35 +751,21 @@ fun DoctorDashboardScreen(
 
                                 Spacer(modifier = Modifier.height(16.dp))
 
-                                // Action buttons: Complete Consultation & No-Show
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                // Action button: Complete Consultation
+                                Button(
+                                    onClick = {
+                                        onCompleteConsultation(visitNotes)
+                                        visitNotes = ""
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(48.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = QueueActiveGreen)
                                 ) {
-                                    OutlinedButton(
-                                        onClick = onMarkNoShow,
-                                        modifier = Modifier.weight(1f).height(46.dp),
-                                        shape = RoundedCornerShape(12.dp),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, QueueCancelledRed.copy(alpha = 0.5f))
-                                    ) {
-                                        Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp), tint = QueueCancelledRed)
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("No-Show", color = QueueCancelledRed, fontWeight = FontWeight.SemiBold)
-                                    }
-
-                                    Button(
-                                        onClick = {
-                                            onCompleteConsultation(visitNotes)
-                                            visitNotes = ""
-                                        },
-                                        modifier = Modifier.weight(1.5f).height(46.dp),
-                                        shape = RoundedCornerShape(12.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = QueueActiveGreen)
-                                    ) {
-                                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Complete Consultation", fontWeight = FontWeight.Bold, color = Color.White)
-                                    }
+                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Complete Consultation", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
                                 }
                             }
                         }
@@ -740,8 +857,11 @@ fun DoctorDashboardScreen(
                 } else {
                     items(waitingList) { apt ->
                         val isCurrentlyServing = apt.id == currentPatient?.id
+                        val displayStatus = if (apt.status == AppointmentStatus.NO_SHOW) AppointmentStatus.WAITING else apt.status
                         Card(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedPatientAppointment = apt },
                             shape = RoundedCornerShape(14.dp),
                             colors = CardDefaults.cardColors(
                                 containerColor = if (isCurrentlyServing) PastelSky else CareSurface
@@ -778,36 +898,53 @@ fun DoctorDashboardScreen(
                                         }
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
-                                        Text(
-                                            text = apt.patientName,
-                                            fontWeight = FontWeight.Bold,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = CareTextPrimary
-                                        )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                text = apt.patientName,
+                                                fontWeight = FontWeight.Bold,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = CareTextPrimary,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Icon(
+                                                imageVector = Icons.Default.Info,
+                                                contentDescription = "View patient profile",
+                                                tint = CarePrimary,
+                                                modifier = Modifier.size(15.dp)
+                                            )
+                                        }
                                         Text(
                                             text = "${apt.timeSlot} • ${apt.patientPhone}",
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = CareTextMuted
+                                            color = CareTextMuted,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                         if (apt.symptoms.isNotBlank()) {
                                             Text(
                                                 text = "Symptom: ${apt.symptoms}",
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = CareTextSecondary
+                                                color = CareTextSecondary,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
                                     }
                                 }
 
+                                Spacer(modifier = Modifier.width(8.dp))
+
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    StatusChip(status = apt.status)
-                                    if (apt.status == AppointmentStatus.BOOKED || apt.status == AppointmentStatus.WAITING) {
+                                    StatusChip(status = displayStatus)
+                                    if (apt.status != AppointmentStatus.COMPLETED && apt.status != AppointmentStatus.CANCELLED && !isCurrentlyServing) {
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Button(
                                             onClick = { onCallSpecificPatient(apt) },
-                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                            shape = RoundedCornerShape(10.dp),
+                                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                            shape = RoundedCornerShape(50),
                                             colors = ButtonDefaults.buttonColors(containerColor = CarePrimary)
                                         ) {
                                             Text("Call", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
@@ -930,5 +1067,311 @@ fun DoctorDashboardScreen(
             }
         )
     }
+
+    // Logout Confirmation Dialog
+    if (showLogoutConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutConfirmDialog = false },
+            title = {
+                Text(
+                    text = "Log Out?",
+                    fontWeight = FontWeight.Bold,
+                    color = CareTextPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to log out of your Doctor account?",
+                    color = CareTextSecondary
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLogoutConfirmDialog = false
+                        onLogoutClick()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Log Out", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutConfirmDialog = false }) {
+                    Text("Cancel", color = CareTextSecondary)
+                }
+            }
+        )
+    }
+
+    // Patient Profile & Details Dialog
+    selectedPatientAppointment?.let { apt ->
+        val isServing = apt.id == currentPatient?.id
+        PatientDetailsDialog(
+            appointment = apt,
+            onDismiss = { selectedPatientAppointment = null },
+            onCallPatient = if (apt.status != AppointmentStatus.COMPLETED && apt.status != AppointmentStatus.CANCELLED && !isServing) {
+                {
+                    onCallSpecificPatient(apt)
+                    selectedPatientAppointment = null
+                }
+            } else null
+        )
+    }
+}
+
+@Composable
+fun PatientDetailsDialog(
+    appointment: Appointment,
+    onDismiss: () -> Unit,
+    onCallPatient: (() -> Unit)? = null
+) {
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+    val displayStatus = if (appointment.status == AppointmentStatus.NO_SHOW) AppointmentStatus.WAITING else appointment.status
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(24.dp),
+        containerColor = CareSurface,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(CircleShape)
+                            .background(CarePrimaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = appointment.patientName.take(1).uppercase(),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            color = CarePrimary
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = appointment.patientName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = CareTextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        StatusChip(status = displayStatus)
+                    }
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = CareTextMuted)
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                HorizontalDivider(color = CardBorderSubtle)
+
+                // Token & Time Summary Banner
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = PastelSky,
+                    border = BorderStroke(1.dp, CarePrimary.copy(alpha = 0.2f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("TOKEN NUMBER", style = MaterialTheme.typography.labelSmall, color = CareTextMuted)
+                            Text(
+                                text = "#${appointment.tokenNumber}",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = CarePrimary
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("SCHEDULED SLOT", style = MaterialTheme.typography.labelSmall, color = CareTextMuted)
+                            Text(
+                                text = appointment.timeSlot,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = CareTextPrimary
+                            )
+                            Text(
+                                text = appointment.date,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = CareTextSecondary
+                            )
+                        }
+                    }
+                }
+
+                // Patient Contact Information
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = CareSurfaceVariant,
+                    border = BorderStroke(1.dp, CardBorderSubtle),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(PastelMint),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Phone, contentDescription = null, tint = QueueActiveGreen, modifier = Modifier.size(18.dp))
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text("Contact Phone", style = MaterialTheme.typography.labelSmall, color = CareTextMuted)
+                                Text(
+                                    text = appointment.patientPhone,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = CareTextPrimary
+                                )
+                            }
+                        }
+                        Row {
+                            IconButton(onClick = {
+                                val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${appointment.patientPhone}"))
+                                context.startActivity(dialIntent)
+                            }) {
+                                Icon(Icons.Default.Phone, contentDescription = "Dial Patient", tint = QueueActiveGreen)
+                            }
+                            IconButton(onClick = {
+                                clipboardManager.setText(AnnotatedString(appointment.patientPhone))
+                            }) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = "Copy phone", tint = CareTextMuted, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    }
+                }
+
+                // Department / Hospital
+                if (appointment.departmentName.isNotBlank() || appointment.hospitalName.isNotBlank()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.MedicalServices, contentDescription = null, tint = CarePrimary, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = listOf(appointment.departmentName, appointment.hospitalName).filter { it.isNotBlank() }.joinToString(" • "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = CareTextSecondary
+                        )
+                    }
+                }
+
+                // Symptoms / Reason for Visit
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = CareSurfaceVariant,
+                    border = BorderStroke(1.dp, CardBorderSubtle),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.AutoMirrored.Filled.Notes, contentDescription = null, tint = CarePrimary, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Symptoms / Reason for Visit",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = CarePrimary
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = appointment.symptoms.ifBlank { appointment.notes.ifBlank { "Routine consultation / General Checkup" } },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = CareTextPrimary
+                        )
+                    }
+                }
+
+                // Doctor's Clinical Notes (if recorded)
+                if (appointment.doctorNotes.isNotBlank()) {
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = PastelMint,
+                        border = BorderStroke(1.dp, QueueActiveGreen.copy(alpha = 0.3f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text(
+                                text = "Doctor Clinical Notes / Prescription",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = QueueActiveGreen
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = appointment.doctorNotes,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = CareTextPrimary
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (onCallPatient != null) {
+                Button(
+                    onClick = onCallPatient,
+                    colors = ButtonDefaults.buttonColors(containerColor = PulseRed),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.NavigateNext, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Call to Room", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, CardBorderSubtle)
+            ) {
+                Text("Close", color = CareTextSecondary)
+            }
+        }
+    )
 }
 

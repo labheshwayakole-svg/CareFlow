@@ -30,6 +30,7 @@ data class Doctor(
     val totalReviews: Int = 0,
     val photoUrl: String = "",
     val loginEmail: String = "",
+    val password: String = "",
     val passwordChanged: Boolean = false,
     val fcmToken: String = "",
     val createdAt: Long = System.currentTimeMillis(),

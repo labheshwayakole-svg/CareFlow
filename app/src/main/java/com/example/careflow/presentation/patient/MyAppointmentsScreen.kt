@@ -1,6 +1,7 @@
 package com.example.careflow.presentation.patient
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -53,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.careflow.domain.model.Appointment
 import com.example.careflow.domain.model.AppointmentStatus
+import com.example.careflow.presentation.components.CarePulseButton
 import com.example.careflow.presentation.components.StatusChip
 import com.example.careflow.presentation.components.TokenBadge
 import com.example.careflow.theme.CardBorderSubtle
@@ -65,6 +67,9 @@ import com.example.careflow.theme.CareTextMuted
 import com.example.careflow.theme.CareTextPrimary
 import com.example.careflow.theme.CareTextSecondary
 import com.example.careflow.theme.PastelSky
+import com.example.careflow.theme.PulseRed
+import com.example.careflow.theme.PulseRoseBg
+import com.example.careflow.theme.PulseRoseBorder
 
 @Composable
 fun MyAppointmentsScreen(
@@ -301,7 +306,8 @@ fun AppointmentCard(
                         modifier = Modifier
                             .size(44.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(PastelSky),
+                            .background(PulseRoseBg)
+                            .border(1.dp, PulseRoseBorder, RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -411,19 +417,11 @@ fun AppointmentCard(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Button(
+                    CarePulseButton(
+                        text = "Track Live Queue",
                         onClick = onTrackClick,
-                        modifier = Modifier.weight(1f).height(44.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = CarePrimary)
-                    ) {
-                        Text(
-                            text = "Track Live Queue ⚡",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            color = Color.White
-                        )
-                    }
+                        modifier = Modifier.weight(1f).height(44.dp)
+                    )
 
                     OutlinedButton(
                         onClick = onCancelClick,

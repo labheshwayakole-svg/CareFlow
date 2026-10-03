@@ -3,69 +3,95 @@ package com.example.careflow.theme
 import androidx.compose.ui.graphics.Color
 
 // =========================================================================
-// CAREFLOW CALM HOSPITAL LIGHT THEME PALETTE
-// Psychologically tuned for healing, trust, low stress, and crystal clarity.
+// CAREFLOW WARM TERRACOTTA CORAL & SUNSET PEACH THEME PALETTE
+// Warm linen cream canvas, welcoming terracotta coral and apricot accents,
+// calming sage-teal clinical touches, and crisp porcelain white surfaces
 // =========================================================================
 
-// Primary Brand: Clinical Cerulean Blue
-val CarePrimary = Color(0xFF0284C7)           // Calming Medical Blue
-val CareOnPrimary = Color(0xFFFFFFFF)
-val CarePrimaryContainer = Color(0xFFE0F2FE)  // Soft Sky Blue Tint
-val CareOnPrimaryContainer = Color(0xFF0369A1) // High-contrast Deep Blue
+// Primary Brand: Warm Terracotta Coral (MediCare+ Logo & Primary Action)
+val CarePrimary = Color(0xFFE06D53)           // Warm Terracotta Coral
+val CareOnPrimary = Color(0xFFFFFFFF)         // Pure White
+val CarePrimaryContainer = Color(0xFFFDE8DB)  // Soft Apricot Peach (Token 14 Card Tint)
+val CareOnPrimaryContainer = Color(0xFF3D1F17)// Deep Warm Espresso / Earthy Cocoa
 
-// Secondary: Healing Pine / Restorative Sage
-val CareSecondary = Color(0xFF0F766E)         // Serene Teal-Pine
+// Secondary: Calming Clinical Sage-Teal (From Quick Links: Labs, Reports, Pharmacy)
+val CareSecondary = Color(0xFF4A9B8F)         // Calming Sage Teal
 val CareOnSecondary = Color(0xFFFFFFFF)
-val CareSecondaryContainer = Color(0xFFCCFBF1)// Soothing Mint Tint
-val CareOnSecondaryContainer = Color(0xFF115E59)
+val CareSecondaryContainer = Color(0xFFE3F3F0)// Soothing Sage Mint Tint
+val CareOnSecondaryContainer = Color(0xFF134E45)
 
-// Tertiary: Clinical Lavender / Specialty Indigo
-val CareTertiary = Color(0xFF6366F1)          // Professional Indigo
+// Tertiary: Sunset Peach
+val CareTertiary = Color(0xFFE27D60)          // Sunset Peach Coral
 val CareOnTertiary = Color(0xFFFFFFFF)
-val CareTertiaryContainer = Color(0xFFEEF2FF) // Soft Periwinkle Tint
-val CareOnTertiaryContainer = Color(0xFF3730A3)
+val CareTertiaryContainer = Color(0xFFFFF1EB) // Warm Apricot Tint
+val CareOnTertiaryContainer = Color(0xFF5A2518)
 
-// Canvas & Surfaces: Clean Hospital Porcelain
-val CareBackground = Color(0xFFF8FAFC)        // Off-white calm hospital slate
-val CareOnBackground = Color(0xFF0F172A)      // Deep Charcoal Slate text
-val CareSurface = Color(0xFFFFFFFF)           // Pure hospital white
-val CareOnSurface = Color(0xFF0F172A)         // Deep Charcoal Slate text
-val CareSurfaceVariant = Color(0xFFF1F5F9)    // Cool Porcelain for input fields & subtle cards
-val CareOnSurfaceVariant = Color(0xFF475569)  // Muted secondary slate text
+// Canvas & Surfaces: Warm Linen Cream & Crisp Porcelain
+val CareBackground = Color(0xFFFAF7F2)        // Soft Warm Linen Cream (Comforting, anti-glare)
+val CareOnBackground = Color(0xFF261C16)      // Deep Warm Espresso Black Text
+val CareSurface = Color(0xFFFFFFFF)           // Pure Crisp White Cards
+val CareOnSurface = Color(0xFF261C16)         // Deep Warm Espresso Black Text
+val CareSurfaceVariant = Color(0xFFF5EFE6)    // Warm Biscuit Alabaster for input fields & subtle chips
+val CareOnSurfaceVariant = Color(0xFF6E5F55)  // Warm Cocoa Slate Text
 
 // Outlines & Borders
-val CareOutline = Color(0xFFCBD5E1)           // Subtle border color
-val CareOutlineVariant = Color(0xFFE2E8F0)    // Ultra-light border color
+val CareOutline = Color(0xFFE3D9CC)           // Warm Subtle Border
+val CareOutlineVariant = Color(0xFFEDE4D8)    // Ultra-light Warm Border
+val CardBorderSubtle = Color(0xFFEDE4D8)      // Delicate Warm Border for Cards
+val CardShadowSubtle = Color(0x143B2219)      // Soft Warm Umber Shadow
 
 // Real-Time Queue & Consultation Accents
-val QueueActiveGreen = Color(0xFF10B981)      // Emerald Calling / Active Turn
-val QueueWaitingAmber = Color(0xFFF59E0B)     // Honey Amber / Waiting in Queue
-val QueueServingCyan = Color(0xFF0EA5E9)      // Electric Sky / In Consultation
-val QueueCancelledRed = Color(0xFFEF4444)     // Crimson / Cancelled / Emergency
+val QueueActiveGreen = Color(0xFF2E8B6D)      // Calm Forest Mint / Active Turn
+val QueueWaitingAmber = Color(0xFFE27D60)     // Warm Apricot Coral / Waiting in Queue
+val QueueServingCyan = Color(0xFF4A9B8F)      // Calming Sage Teal / In Consultation
+val QueueCancelledRed = Color(0xFFDC2626)     // Emergency Crimson (Used ONLY for errors/cancellations)
+
+// CareFlow Signature Terracotta & Coral Tokens
+val CoralDeep = Color(0xFFC85A3F)             // Deep Terracotta Coral
+val CoralWarm = Color(0xFFE06D53)             // Warm Terracotta Coral
+val CoralBright = Color(0xFFF2856D)           // Vibrant Sunset Coral
+val CoralApricot = Color(0xFFF59E89)          // Apricot Coral
+val CoralMistBg = Color(0xFFFDF2EB)           // Warm Coral Mist Pill Background
+val CoralMistBorder = Color(0xFFFCDAC8)       // Soft Apricot Pill Border
+val CoralDeepText = Color(0xFFC85A3F)         // Deep Terracotta Text
+val CoralShadow = Color(0x28E06D53)           // Ambient Coral Drop Shadow
+val CoralCardGlow = Color(0x18E06D53)         // Warm Ambient Glow
+
+// Design System Aliases for Seamless Backward-Compatibility
+val PulseCrimsonDark = CoralDeep
+val PulseRed = CoralWarm
+val PulseRedBright = CoralBright
+val PulseCoral = CoralApricot
+val PulseRoseBg = CoralMistBg
+val PulseRoseBorder = CoralMistBorder
+val PulseRoseText = CoralDeepText
+val PulseShadow = CoralShadow
+val PulseCardGlow = CoralCardGlow
+
+// Emerald / Sage Live State Badges
+val PulseLiveGreen = Color(0xFF2E8B6D)
+val PulseLiveGreenBg = Color(0xFFE2F5EE)
+val PulseLiveGreenBorder = Color(0xFFA7E3CE)
 
 // Pastel Accents for Diagnosis & Department Chips
-val PastelSky = Color(0xFFF0F9FF)
-val PastelMint = Color(0xFFECFDF5)
-val PastelAmber = Color(0xFFFFFBEB)
-val PastelRose = Color(0xFFFFF1F2)
-val PastelPurple = Color(0xFFF5F3FF)
-val PastelTeal = Color(0xFFF0FDFA)
+val PastelSky = Color(0xFFE3F3F0)             // Soft Sage Teal
+val PastelMint = Color(0xFFE2F5EE)            // Calming Mint
+val PastelAmber = Color(0xFFFDEBD9)           // Warm Apricot Amber
+val PastelRose = Color(0xFFFDF2EB)            // Warm Coral Mist
+val PastelPurple = Color(0xFFF5EEF8)
+val PastelTeal = Color(0xFFE3F3F0)
+val PastelPeach = Color(0xFFFDE8DB)           // Soft Apricot Peach (Token pass background)
+val PastelLavender = Color(0xFFF5EEF8)
 
-val CardBorderSubtle = Color(0xFFE2E8F0)
-val CardShadowSubtle = Color(0x0D0F172A)
+val QueueActiveGreenContainer = Color(0xFFE2F5EE)
+val QueueWaitingAmberContainer = Color(0xFFFDEBD9)
+val QueueServingCyanContainer = Color(0xFFE3F5F2)
+val QueueCancelledRedContainer = Color(0xFFFEE2E2)
 
-// High contrast typography colors for hospital light theme
+// High contrast typography colors for warm light theme
 val CareTextPrimary = CareOnSurface
 val CareTextSecondary = CareOnSurfaceVariant
-val CareTextMuted = Color(0xFF64748B)
-
-// Pastel container colors
-val PastelPeach = Color(0xFFFFF7ED)
-val PastelLavender = Color(0xFFF5F3FF)
-val QueueActiveGreenContainer = Color(0xFFD1FAE5)
-val QueueWaitingAmberContainer = Color(0xFFFEF3C7)
-val QueueServingCyanContainer = Color(0xFFE0F2FE)
-val QueueCancelledRedContainer = Color(0xFFFEE2E2)
+val CareTextMuted = Color(0xFF9E8F84)         // Warm Taupe
 
 // Backward-compatibility aliases
 val PrimaryTeal = CarePrimary

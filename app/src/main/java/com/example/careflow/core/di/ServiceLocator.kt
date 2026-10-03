@@ -1,9 +1,11 @@
 package com.example.careflow.core.di
 
+import android.content.Context
 import com.example.careflow.core.dispatcher.DefaultDispatcherProvider
 import com.example.careflow.core.dispatcher.DispatcherProvider
 import com.example.careflow.data.datasource.InMemoryDataStore
 import com.example.careflow.data.firebase.FirebaseDataSource
+import com.example.careflow.data.local.UserSessionManager
 import com.example.careflow.data.repository.AppointmentRepositoryImpl
 import com.example.careflow.data.repository.AuthRepositoryImpl
 import com.example.careflow.data.repository.DoctorRepositoryImpl
@@ -23,6 +25,18 @@ import com.example.careflow.domain.usecase.GetDoctorsUseCase
 import com.example.careflow.domain.usecase.ObserveLiveQueueUseCase
 
 object ServiceLocator {
+    var appContext: Context? = null
+        private set
+    var userSessionManagerOrNull: UserSessionManager? = null
+        private set
+
+    fun init(context: Context) {
+        if (appContext == null) {
+            appContext = context.applicationContext
+            userSessionManagerOrNull = UserSessionManager(context.applicationContext)
+        }
+    }
+
     val dispatcherProvider: DispatcherProvider by lazy {
         DefaultDispatcherProvider()
     }
@@ -39,12 +53,14 @@ object ServiceLocator {
         AuthRepositoryImpl(
             dataStore = inMemoryDataStore,
             firebaseDataSource = firebaseDataSource,
+            sessionManager = userSessionManagerOrNull,
             dispatchers = dispatcherProvider
         )
     }
 
     val hospitalRepository: HospitalRepository by lazy {
         HospitalRepositoryImpl(
+            dataStore = inMemoryDataStore,
             firebaseDataSource = firebaseDataSource,
             dispatchers = dispatcherProvider
         )

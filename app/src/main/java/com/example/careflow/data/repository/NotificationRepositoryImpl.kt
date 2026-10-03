@@ -46,4 +46,24 @@ class NotificationRepositoryImpl(
                 Resource.Error(e.message ?: "Failed to mark all as read", e)
             }
         }
+
+    override suspend fun deleteNotification(notificationId: String): Resource<Unit> =
+        withContext(dispatchers.io) {
+            try {
+                firebaseDataSource.deleteNotification(notificationId)
+                Resource.Success(Unit)
+            } catch (e: Exception) {
+                Resource.Error(e.message ?: "Failed to delete notification", e)
+            }
+        }
+
+    override suspend fun clearAllNotifications(userId: String): Resource<Unit> =
+        withContext(dispatchers.io) {
+            try {
+                firebaseDataSource.clearAllNotifications(userId)
+                Resource.Success(Unit)
+            } catch (e: Exception) {
+                Resource.Error(e.message ?: "Failed to clear notifications", e)
+            }
+        }
 }

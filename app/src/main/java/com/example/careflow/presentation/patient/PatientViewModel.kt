@@ -4,8 +4,10 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.careflow.core.di.ServiceLocator
+import com.example.careflow.core.notification.CallNotificationService
 import com.example.careflow.core.result.Resource
 import com.example.careflow.domain.model.Appointment
+import com.example.careflow.domain.model.AppointmentStatus
 import com.example.careflow.domain.model.Department
 import com.example.careflow.domain.model.Doctor
 import com.example.careflow.domain.model.Hospital
@@ -46,10 +48,18 @@ data class PatientUiState(
     val selectedDoctor: Doctor? = null,
     val activeQueueEstimate: QueueEstimate? = null,
     val activeTrackingAppointment: Appointment? = null,
+    val availableBookingDates: List<com.example.careflow.domain.model.DayBookingSummary> = emptyList(),
+    val selectedBookingDate: String = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()),
+    val selectedDoctorAppointments: List<Appointment> = emptyList(),
+    val allDoctors: List<Doctor> = emptyList(),
+    val allDepartments: List<Department> = emptyList(),
+    val availableTimeSlots: List<com.example.careflow.domain.model.DoctorTimeSlot> = emptyList(),
+    val nextPredictedToken: Int = 1,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val successMessage: String? = null,
-    val lastBookedAppointment: Appointment? = null
+    val lastBookedAppointment: Appointment? = null,
+    val incomingCallAlert: Notification? = null
 )
 
 class PatientViewModel(
@@ -68,11 +78,18 @@ class PatientViewModel(
     private var queueTrackingJob: Job? = null
     private var doctorsJob: Job? = null
     private var departmentsJob: Job? = null
+    private var allDoctorsJob: Job? = null
+    private var allDepartmentsJob: Job? = null
     private var notificationsJob: Job? = null
+    private var doctorAppointmentsJob: Job? = null
+    private val handledCallNotificationIds = mutableSetOf<String>()
+    private var lastHandledCallTimestamp: Long = 0L
 
     init {
         observeCurrentUser()
         observeHospitals()
+        observeAllDoctors()
+        observeAllDepartments()
     }
 
     private fun observeCurrentUser() {
@@ -82,6 +99,13 @@ class PatientViewModel(
                 if (user != null) {
                     observeMyAppointments(user.id)
                     observeNotifications(user.id)
+                    val savedHospId = user.selectedHospitalId
+                    if (!savedHospId.isNullOrBlank() && _uiState.value.selectedHospital == null) {
+                        val hosp = _uiState.value.hospitals.find { it.id == savedHospId }
+                        if (hosp != null) {
+                            selectHospital(hosp)
+                        }
+                    }
                 }
             }
         }
@@ -90,26 +114,66 @@ class PatientViewModel(
     private fun observeHospitals() {
         viewModelScope.launch {
             hospitalRepository.observeHospitals().collect { hospList ->
+                val prevSelectedId = _uiState.value.selectedHospital?.id
+                    ?: _uiState.value.currentUser?.selectedHospitalId?.takeIf { it.isNotBlank() }
+                val matchingHospital = prevSelectedId?.let { id -> hospList.find { it.id == id } }
+
                 _uiState.update { current ->
-                    val updatedSel = current.selectedHospital?.let { sel ->
-                        hospList.find { it.id == sel.id }
-                    }
                     current.copy(
                         hospitals = hospList,
-                        selectedHospital = updatedSel
+                        selectedHospital = matchingHospital
                     )
+                }
+                if (matchingHospital != null) {
+                    observeHospitalDepartments(matchingHospital.id)
+                    observeHospitalDoctors(matchingHospital.id)
                 }
             }
         }
     }
 
+    private fun observeAllDoctors() {
+        allDoctorsJob?.cancel()
+        allDoctorsJob = viewModelScope.launch {
+            doctorRepository.observeDoctors(null).collect { docList ->
+                _uiState.update { it.copy(allDoctors = docList) }
+            }
+        }
+    }
+
+    private fun observeAllDepartments() {
+        allDepartmentsJob?.cancel()
+        allDepartmentsJob = viewModelScope.launch {
+            doctorRepository.observeDepartments(null).collect { deptList ->
+                _uiState.update { it.copy(allDepartments = deptList) }
+            }
+        }
+    }
+
     fun selectHospital(hospital: Hospital) {
+        queueTrackingJob?.cancel()
+        // Check if patient has an active appointment for THIS specific selected hospital
+        val activeAptForHosp = _uiState.value.myAppointments.find {
+            it.hospitalId == hospital.id &&
+            (it.status == AppointmentStatus.BOOKED ||
+             it.status == AppointmentStatus.WAITING ||
+             it.status == AppointmentStatus.CALLED ||
+             it.status == AppointmentStatus.IN_CONSULTATION)
+        }
+
         _uiState.update {
             it.copy(
                 selectedHospital = hospital,
-                selectedDepartmentId = null
+                selectedDepartmentId = null,
+                activeTrackingAppointment = activeAptForHosp,
+                activeQueueEstimate = null
             )
         }
+
+        if (activeAptForHosp != null) {
+            trackAppointmentQueue(activeAptForHosp)
+        }
+
         viewModelScope.launch {
             authRepository.updateSelectedHospital(hospital.id)
         }
@@ -120,13 +184,19 @@ class PatientViewModel(
     fun clearSelectedHospital() {
         departmentsJob?.cancel()
         doctorsJob?.cancel()
+        queueTrackingJob?.cancel()
         _uiState.update {
             it.copy(
                 selectedHospital = null,
                 selectedDepartmentId = null,
+                activeTrackingAppointment = null,
+                activeQueueEstimate = null,
                 departments = emptyList(),
                 doctors = emptyList()
             )
+        }
+        viewModelScope.launch {
+            authRepository.updateSelectedHospital("")
         }
     }
 
@@ -165,18 +235,31 @@ class PatientViewModel(
                 // Check 1-hour and 30-minute reminder triggers
                 checkAppointmentReminders(apts)
 
-                // If currently tracking an appointment, update estimate
+                // If currently tracking an appointment, update estimate only if it belongs to selected hospital
+                val currentHospId = _uiState.value.selectedHospital?.id
                 val activeTracking = _uiState.value.activeTrackingAppointment
-                if (activeTracking != null) {
+                if (activeTracking != null && currentHospId != null && activeTracking.hospitalId == currentHospId) {
                     val refreshed = apts.find { it.id == activeTracking.id }
                     if (refreshed != null) {
                         _uiState.update { it.copy(activeTrackingAppointment = refreshed) }
                     }
-                } else {
-                    val activeApt = apts.find { it.status.name == "BOOKED" || it.status.name == "WAITING" || it.status.name == "CALLED" || it.status.name == "IN_CONSULTATION" }
+                } else if (currentHospId != null) {
+                    val activeApt = apts.find {
+                        it.hospitalId == currentHospId &&
+                        (it.status == AppointmentStatus.BOOKED ||
+                         it.status == AppointmentStatus.WAITING ||
+                         it.status == AppointmentStatus.CALLED ||
+                         it.status == AppointmentStatus.IN_CONSULTATION)
+                    }
                     if (activeApt != null) {
                         trackAppointmentQueue(activeApt)
+                    } else {
+                        queueTrackingJob?.cancel()
+                        _uiState.update { it.copy(activeTrackingAppointment = null, activeQueueEstimate = null) }
                     }
+                } else {
+                    queueTrackingJob?.cancel()
+                    _uiState.update { it.copy(activeTrackingAppointment = null, activeQueueEstimate = null) }
                 }
             }
         }
@@ -187,6 +270,45 @@ class PatientViewModel(
         notificationsJob = viewModelScope.launch {
             notificationRepository.observeNotifications(patientId).collect { notifs ->
                 _uiState.update { it.copy(notifications = notifs) }
+
+                // Detect newly arrived unread QUEUE_CALLED notifications
+                val callAlerts = notifs.filter { n ->
+                    n.type == NotificationType.QUEUE_CALLED &&
+                    !n.isRead &&
+                    (n.id !in handledCallNotificationIds || n.createdAt > lastHandledCallTimestamp)
+                }.sortedByDescending { it.createdAt }
+
+                if (callAlerts.isNotEmpty()) {
+                    val alert = callAlerts.first()
+                    handledCallNotificationIds.add(alert.id)
+                    lastHandledCallTimestamp = maxOf(lastHandledCallTimestamp, alert.createdAt)
+
+                    // Emit to state for full-screen in-app dialog
+                    _uiState.update { it.copy(incomingCallAlert = alert) }
+
+                    // Trigger unified 3.5s audible chime, vibration & heads-up system notification
+                    val ctx = ServiceLocator.appContext
+                    if (ctx != null) {
+                        val tokenNum = alert.title.substringAfter("Token #", "")
+                            .substringBefore(")").trim().toIntOrNull()
+                            ?: alert.title.filter { it.isDigit() }.toIntOrNull()
+                            ?: 0
+
+                        val doctorName = if (alert.body.contains("Dr. ")) {
+                            alert.body.substringAfter("Dr. ").substringBefore(" is calling").trim()
+                        } else {
+                            "Doctor"
+                        }
+
+                        CallNotificationService.triggerAlert(
+                            context = ctx,
+                            alertId = alert.id,
+                            tokenNumber = tokenNum,
+                            doctorName = doctorName,
+                            appointmentId = alert.appointmentId ?: ""
+                        )
+                    }
+                }
             }
         }
     }
@@ -200,10 +322,10 @@ class PatientViewModel(
 
             // Parse appointment slot time for today
             try {
-                val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
                 if (apt.date == todayStr) {
                     val timePart = apt.timeSlot.substringBefore(" - ").trim()
-                    val format = SimpleDateFormat("yyyy-MM-dd hh:mm a", Locale.getDefault())
+                    val format = SimpleDateFormat("yyyy-MM-dd hh:mm a", Locale.US)
                     val slotTime = format.parse("$todayStr $timePart")?.time ?: continue
                     val diffMinutes = (slotTime - now) / (60 * 1000)
 
@@ -283,11 +405,66 @@ class PatientViewModel(
     }
 
     fun selectDoctor(doctor: Doctor) {
-        _uiState.update { it.copy(selectedDoctor = doctor, lastBookedAppointment = null) }
+        val days = com.example.careflow.domain.util.BookingTimeUtils.generateOneWeekDays()
+        val defaultDate = days.firstOrNull()?.dateString ?: SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        _uiState.update {
+            it.copy(
+                selectedDoctor = doctor,
+                availableBookingDates = days,
+                selectedBookingDate = defaultDate,
+                lastBookedAppointment = null,
+                selectedDoctorAppointments = emptyList(),
+                availableTimeSlots = emptyList()
+            )
+        }
+        observeDoctorAppointments(doctor, defaultDate)
+    }
+
+    fun selectBookingDate(date: String) {
+        val doctor = _uiState.value.selectedDoctor ?: return
+        _uiState.update { it.copy(selectedBookingDate = date) }
+        observeDoctorAppointments(doctor, date)
+    }
+
+    private fun observeDoctorAppointments(doctor: Doctor, date: String) {
+        doctorAppointmentsJob?.cancel()
+        doctorAppointmentsJob = viewModelScope.launch {
+            appointmentRepository.observeAppointmentsForDoctor(doctor.id, date).collect { apts ->
+                val slots = com.example.careflow.domain.util.BookingTimeUtils.generateDoctorSlots(
+                    doctor = doctor,
+                    existingAppointments = apts,
+                    selectedDate = date
+                )
+                val predictedToken = com.example.careflow.domain.util.BookingTimeUtils.calculateNextPredictedToken(
+                    appointments = apts,
+                    selectedDate = date,
+                    doctorId = doctor.id
+                )
+
+                // Update days summary with real-time seat counts for the selected date
+                val updatedDays = _uiState.value.availableBookingDates.map { day ->
+                    if (day.dateString == date) {
+                        day.copy(
+                            totalSlots = slots.size,
+                            bookedSlots = slots.count { it.isBooked }
+                        )
+                    } else day
+                }
+
+                _uiState.update { current ->
+                    current.copy(
+                        selectedDoctorAppointments = apts,
+                        availableTimeSlots = slots,
+                        nextPredictedToken = predictedToken,
+                        availableBookingDates = updatedDays
+                    )
+                }
+            }
+        }
     }
 
     fun bookAppointment(
-        date: String = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()),
+        date: String = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()),
         timeSlot: String = "10:00 AM",
         notes: String = "",
         symptoms: String = notes
@@ -372,7 +549,42 @@ class PatientViewModel(
         }
     }
 
+    fun deleteNotification(notificationId: String) {
+        viewModelScope.launch {
+            notificationRepository.deleteNotification(notificationId)
+        }
+    }
+
+    fun clearAllNotifications() {
+        val user = _uiState.value.currentUser ?: return
+        viewModelScope.launch {
+            notificationRepository.clearAllNotifications(user.id)
+        }
+    }
+
     fun clearMessages() {
         _uiState.update { it.copy(errorMessage = null, successMessage = null) }
+    }
+
+    fun dismissCallAlert() {
+        val ctx = ServiceLocator.appContext
+        CallNotificationService.stopAlert(ctx)
+        CallNotificationService.cancelNotification(ctx)
+        val alert = _uiState.value.incomingCallAlert
+        if (alert != null) {
+            viewModelScope.launch {
+                try {
+                    notificationRepository.markAsRead(alert.id)
+                } catch (_: Exception) {}
+            }
+        }
+        _uiState.update { it.copy(incomingCallAlert = null) }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        val ctx = ServiceLocator.appContext
+        CallNotificationService.stopAlert(ctx)
+        CallNotificationService.cancelNotification(ctx)
     }
 }

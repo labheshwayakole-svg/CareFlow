@@ -9,4 +9,6 @@ interface NotificationRepository {
     suspend fun sendNotification(notification: Notification): Resource<Unit>
     suspend fun markAsRead(notificationId: String): Resource<Unit>
     suspend fun markAllAsRead(userId: String): Resource<Unit>
+    suspend fun deleteNotification(notificationId: String): Resource<Unit>
+    suspend fun clearAllNotifications(userId: String): Resource<Unit>
 }

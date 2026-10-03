@@ -8,3 +8,8 @@
 .externalNativeBuild
 .cxx
 local.properties
+/app_icon_previews/
+/theme_previews/
+test.png
+icon_gallery.html
+theme_gallery.html

@@ -18,11 +18,46 @@ class QueueRepositoryImpl(
     private val dispatchers: DispatcherProvider = DefaultDispatcherProvider()
 ) : QueueRepository {
 
-    override fun observeLiveQueue(doctorId: String, date: String): Flow<DailyQueue?> =
-        firebaseDataSource.observeLiveQueue(doctorId, date).flowOn(dispatchers.io)
+    override fun observeLiveQueue(doctorId: String, date: String): Flow<DailyQueue?> = kotlinx.coroutines.flow.flow {
+        val key = "${doctorId}_$date"
+        val local = dataStore.queues.value[key]
+        if (local != null) emit(local)
+        try {
+            firebaseDataSource.observeLiveQueue(doctorId, date).collect { fbQueue ->
+                if (fbQueue != null) {
+                    emit(fbQueue)
+                } else if (local != null) {
+                    emit(local)
+                } else {
+                    emit(null)
+                }
+            }
+        } catch (_: Exception) {
+            if (local != null) emit(local)
+        }
+    }.flowOn(dispatchers.io)
 
-    override fun observeAllActiveQueues(hospitalId: String?): Flow<List<DailyQueue>> =
-        firebaseDataSource.observeAllActiveQueues(hospitalId).flowOn(dispatchers.io)
+    override fun observeAllActiveQueues(hospitalId: String?): Flow<List<DailyQueue>> = kotlinx.coroutines.flow.flow {
+        val localList = if (hospitalId.isNullOrBlank()) {
+            dataStore.queues.value.values.toList()
+        } else {
+            dataStore.queues.value.values.filter { it.hospitalId == hospitalId }
+        }
+        if (localList.isNotEmpty()) emit(localList)
+        try {
+            firebaseDataSource.observeAllActiveQueues(hospitalId).collect { fbList ->
+                if (fbList.isNotEmpty()) {
+                    emit(fbList)
+                } else if (localList.isNotEmpty()) {
+                    emit(localList)
+                } else {
+                    emit(emptyList())
+                }
+            }
+        } catch (_: Exception) {
+            if (localList.isNotEmpty()) emit(localList)
+        }
+    }.flowOn(dispatchers.io)
 
     override suspend fun getOrCreateQueue(
         doctorId: String,
@@ -82,8 +117,14 @@ class QueueRepositoryImpl(
         patientId: String
     ): Resource<DailyQueue> = withContext(dispatchers.io) {
         try {
-            val updated = firebaseDataSource.callPatientAtomic(doctorId, date, tokenNumber, patientId)
-            Resource.Success(updated)
+            try {
+                val updated = firebaseDataSource.callPatientAtomic(doctorId, date, tokenNumber, patientId)
+                dataStore.callPatientAtomic(doctorId, date, tokenNumber, patientId)
+                Resource.Success(updated)
+            } catch (_: Exception) {
+                val localQueue = dataStore.callPatientAtomic(doctorId, date, tokenNumber, patientId)
+                Resource.Success(localQueue)
+            }
         } catch (e: Exception) {
             Resource.Error(e.message ?: "Failed to call patient", e)
         }
