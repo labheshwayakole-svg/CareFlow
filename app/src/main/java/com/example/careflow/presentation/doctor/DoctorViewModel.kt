@@ -56,27 +56,24 @@ class DoctorViewModel(
         loadDoctorProfile()
     }
 
+    private var doctorProfileJob: kotlinx.coroutines.Job? = null
+
     private fun loadDoctorProfile() {
         viewModelScope.launch {
             authRepository.observeCurrentUser().collect { user ->
+                doctorProfileJob?.cancel()
                 if (user != null) {
-                    when (val res = doctorRepository.getDoctorByUserId(user.id)) {
-                        is Resource.Success -> {
-                            _uiState.update { it.copy(doctor = res.data, errorMessage = null) }
-                            observeDoctorQueue(res.data.id)
-                            observeDoctorAppointments(res.data.id)
-                        }
-                        is Resource.Error -> {
-                            _uiState.update {
-                                it.copy(
-                                    doctor = null,
-                                    todayQueue = null,
-                                    todayAppointments = emptyList(),
-                                    currentServingAppointment = null
-                                )
+                    doctorProfileJob = viewModelScope.launch {
+                        doctorRepository.observeDoctorByUserId(user.id).collect { doc ->
+                            if (doc != null) {
+                                val previousDocId = _uiState.value.doctor?.id
+                                _uiState.update { it.copy(doctor = doc, errorMessage = null) }
+                                if (previousDocId != doc.id) {
+                                    observeDoctorQueue(doc.id)
+                                    observeDoctorAppointments(doc.id)
+                                }
                             }
                         }
-                        is Resource.Loading -> {}
                     }
                 } else {
                     _uiState.update {

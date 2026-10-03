@@ -98,23 +98,33 @@ object BookingTimeUtils {
     }
 
     /**
-     * Cleanly formats shift start and end times for clean display in UI (e.g. "09:00 AM - 05:00 PM").
+     * Checks if a shift crosses midnight into the next day (e.g. 09:00 PM to 02:00 AM).
+     */
+    fun isOvernightShift(startTimeRaw: String, endTimeRaw: String): Boolean {
+        val (startH, startM) = parseHourAndMinute(startTimeRaw, 9, 0)
+        val (endH, endM) = parseHourAndMinute(endTimeRaw, 17, 0)
+        val startTotal = startH * 60 + startM
+        val endTotal = endH * 60 + endM
+        return endTotal < startTotal
+    }
+
+    /**
+     * Cleanly formats shift start and end times for clean display in UI (e.g. "09:00 AM - 05:00 PM" or "09:00 PM - 02:00 AM (+1d)").
      */
     fun formatDisplayShift(startTimeRaw: String, endTimeRaw: String): String {
         val (startH, startM) = parseHourAndMinute(startTimeRaw, 9, 0)
-        var (endH, endM) = parseHourAndMinute(endTimeRaw, 17, 0)
-
-        // Fix PM shift if entered like "0500 Am" or 5 AM for closing
-        if (endH <= startH && endH in 1..11) {
-            endH += 12
-        }
+        val (endH, endM) = parseHourAndMinute(endTimeRaw, 17, 0)
 
         val startFormatted = formatHourMinute(startH, startM)
         val endFormatted = formatHourMinute(endH, endM)
-        return "$startFormatted - $endFormatted"
+        return if (isOvernightShift(startTimeRaw, endTimeRaw)) {
+            "$startFormatted - $endFormatted (+1d)"
+        } else {
+            "$startFormatted - $endFormatted"
+        }
     }
 
-    private fun formatHourMinute(hourOfDay: Int, minute: Int): String {
+    fun formatHourMinute(hourOfDay: Int, minute: Int): String {
         val amPm = if (hourOfDay >= 12) "PM" else "AM"
         val hour12 = when {
             hourOfDay == 0 -> 12
@@ -125,8 +135,90 @@ object BookingTimeUtils {
     }
 
     /**
+     * Calculates total shift duration in minutes.
+     * Fully supports overnight shifts crossing midnight (e.g. 09:00 PM to 02:00 AM = 300 mins = 5 hrs).
+     */
+    fun calculateShiftDurationMinutes(startTimeRaw: String, endTimeRaw: String): Int {
+        val (startH, startM) = parseHourAndMinute(startTimeRaw, 9, 0)
+        val (endH, endM) = parseHourAndMinute(endTimeRaw, 17, 0)
+        val startTotal = startH * 60 + startM
+        val endTotal = endH * 60 + endM
+
+        return when {
+            endTotal > startTotal -> endTotal - startTotal
+            endTotal < startTotal -> (endTotal + 24 * 60) - startTotal // Crosses midnight into next morning
+            else -> 0
+        }
+    }
+
+    /**
+     * Formats shift duration into human-readable string (e.g., "5 hrs 00 mins").
+     */
+    fun formatShiftDuration(startTimeRaw: String, endTimeRaw: String): String {
+        val totalMinutes = calculateShiftDurationMinutes(startTimeRaw, endTimeRaw)
+        val hrs = totalMinutes / 60
+        val mins = totalMinutes % 60
+        val isOvernight = isOvernightShift(startTimeRaw, endTimeRaw)
+        val baseDuration = when {
+            hrs > 0 && mins > 0 -> "$hrs hrs $mins mins"
+            hrs > 0 -> "$hrs hrs"
+            else -> "$mins mins"
+        }
+        return if (isOvernight) "$baseDuration (Overnight)" else baseDuration
+    }
+
+    /**
+     * Checks if current time is currently within doctor's shift hours.
+     * Fully supports overnight shifts crossing midnight.
+     */
+    fun isDoctorShiftCurrentlyActive(startTimeRaw: String, endTimeRaw: String): Boolean {
+        val (startH, startM) = parseHourAndMinute(startTimeRaw, 9, 0)
+        val (endH, endM) = parseHourAndMinute(endTimeRaw, 17, 0)
+        val startTotal = startH * 60 + startM
+        val endTotal = endH * 60 + endM
+        val now = Calendar.getInstance()
+        val curMinutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
+
+        return if (endTotal < startTotal) {
+            // Overnight shift (e.g. 21:00 to 02:00)
+            curMinutes >= startTotal || curMinutes < endTotal
+        } else {
+            curMinutes in startTotal..endTotal
+        }
+    }
+
+    /**
+     * Checks if today's shift has already finished.
+     */
+    fun hasShiftEndedForToday(startTimeRaw: String, endTimeRaw: String): Boolean {
+        val (startH, startM) = parseHourAndMinute(startTimeRaw, 9, 0)
+        val (endH, endM) = parseHourAndMinute(endTimeRaw, 17, 0)
+        val startTotal = startH * 60 + startM
+        val endTotal = endH * 60 + endM
+        val now = Calendar.getInstance()
+        val curMinutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
+
+        return if (endTotal < startTotal) {
+            // Overnight shift starting today (e.g. 9 PM to 2 AM)
+            // On the starting day, the shift has not ended yet (it concludes early next morning)
+            false
+        } else {
+            curMinutes >= endTotal
+        }
+    }
+
+    fun hasShiftEndedForToday(endTimeRaw: String): Boolean {
+        var (endH, endM) = parseHourAndMinute(endTimeRaw, 17, 0)
+        val now = Calendar.getInstance()
+        val curMinutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
+        val endMinutes = endH * 60 + endM
+        return curMinutes >= endMinutes
+    }
+
+    /**
      * Generates dynamic consultation time slots for the doctor based on shift hours
      * with rock-solid guards against infinite loops and date mismatches.
+     * Fully supports overnight shifts crossing midnight (e.g. 09:00 PM to 02:00 AM).
      */
     fun generateDoctorSlots(
         doctor: Doctor,
@@ -142,44 +234,37 @@ object BookingTimeUtils {
 
         // Parse start and end hours robustly
         val (rawStartH, rawStartM) = parseHourAndMinute(doctor.shiftStartTime, defaultHour = 9, defaultMinute = 0)
-        var (rawEndH, rawEndM) = parseHourAndMinute(doctor.shiftEndTime, defaultHour = 17, defaultMinute = 0)
+        val (rawEndH, rawEndM) = parseHourAndMinute(doctor.shiftEndTime, defaultHour = 17, defaultMinute = 0)
 
-        // If end hour is <= start hour (e.g. 5:00 AM for closing time entered as "0500 Am"),
-        // convert closing hour to PM (17:00)
-        if (rawEndH <= rawStartH && rawEndH in 1..11) {
-            rawEndH += 12
+        // Parse selectedDate into year, month, day so real-time comparison works accurately
+        val dateCal = Calendar.getInstance().apply {
+            val dateParsed = try {
+                SimpleDateFormat(DATE_FORMAT, Locale.US).parse(selectedDate)
+            } catch (_: Exception) {
+                null
+            }
+            if (dateParsed != null) {
+                time = dateParsed
+            }
         }
 
-        // If end time is still before or equal to start time, default to standard 9:00 AM to 5:00 PM
-        var finalStartH = rawStartH
-        var finalStartM = rawStartM
-        var finalEndH = rawEndH
-        var finalEndM = rawEndM
-
-        if (finalEndH < finalStartH || (finalEndH == finalStartH && finalEndM <= finalStartM)) {
-            finalStartH = 9
-            finalStartM = 0
-            finalEndH = 17
-            finalEndM = 0
-        }
-
-        // ANCHOR BOTH ON THE EXACT SAME CALENDAR DAY to avoid cross-century/cross-year while loop hangs
-        val baseCal = Calendar.getInstance().apply {
-            set(Calendar.YEAR, 2026)
-            set(Calendar.MONTH, Calendar.JANUARY)
-            set(Calendar.DAY_OF_MONTH, 1)
+        val startCal = (dateCal.clone() as Calendar).apply {
+            set(Calendar.HOUR_OF_DAY, rawStartH)
+            set(Calendar.MINUTE, rawStartM)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }
 
-        val startCal = (baseCal.clone() as Calendar).apply {
-            set(Calendar.HOUR_OF_DAY, finalStartH)
-            set(Calendar.MINUTE, finalStartM)
+        val endCal = (dateCal.clone() as Calendar).apply {
+            set(Calendar.HOUR_OF_DAY, rawEndH)
+            set(Calendar.MINUTE, rawEndM)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
         }
 
-        val endCal = (baseCal.clone() as Calendar).apply {
-            set(Calendar.HOUR_OF_DAY, finalEndH)
-            set(Calendar.MINUTE, finalEndM)
+        // If end time is before or equal to start time, it crosses midnight into the next day!
+        if (!endCal.after(startCal)) {
+            endCal.add(Calendar.DAY_OF_YEAR, 1)
         }
 
         // Filter active appointments for this doctor on the selected date
@@ -194,18 +279,14 @@ object BookingTimeUtils {
         var safetyIterations = 0
         val safeInterval = slotIntervalMinutes.coerceAtLeast(10)
 
-        // Strict limit of at most 48 slots per day (prevents any infinite loop under all conditions)
-        while (currentSlotCal.before(endCal) && safetyIterations < 48) {
+        // Generate slots up to and including endCal (e.g. 10:00 PM to 05:00 AM includes 05:00 AM)
+        while (currentSlotCal.timeInMillis <= endCal.timeInMillis && safetyIterations < 48) {
             safetyIterations++
             val slotStr = timeSdf.format(currentSlotCal.time).uppercase(Locale.getDefault())
 
-            // Check if slot has already passed if selected date is today
+            // Check if slot has already passed in real-time if selected date is today
             val isPassed = if (isToday) {
-                val slotHour = currentSlotCal.get(Calendar.HOUR_OF_DAY)
-                val slotMinute = currentSlotCal.get(Calendar.MINUTE)
-                val currentHour = now.get(Calendar.HOUR_OF_DAY)
-                val currentMinute = now.get(Calendar.MINUTE)
-                (slotHour < currentHour) || (slotHour == currentHour && slotMinute <= currentMinute)
+                currentSlotCal.timeInMillis <= now.timeInMillis
             } else false
 
             // Find if any booking matches this slot

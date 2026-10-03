@@ -776,6 +776,34 @@ class FirebaseDataSource(
         awaitClose { reg.remove() }
     }
 
+    fun observeDoctorById(doctorId: String): Flow<Doctor?> = callbackFlow {
+        val reg = firestore.collection("doctors").document(doctorId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(null)
+                    return@addSnapshotListener
+                }
+                val doc = if (snapshot != null && snapshot.exists()) mapDoctor(snapshot.id, snapshot.data) else null
+                trySend(doc)
+            }
+        awaitClose { reg.remove() }
+    }
+
+    fun observeDoctorByUserId(userId: String): Flow<Doctor?> = callbackFlow {
+        val reg = firestore.collection("doctors")
+            .whereEqualTo("userId", userId)
+            .limit(1)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(null)
+                    return@addSnapshotListener
+                }
+                val doc = snapshot?.documents?.firstOrNull()?.let { mapDoctor(it.id, it.data) }
+                trySend(doc)
+            }
+        awaitClose { reg.remove() }
+    }
+
     suspend fun getDoctorById(doctorId: String): Doctor? {
         return try {
             val doc = firestore.collection("doctors").document(doctorId).get().await()
@@ -896,6 +924,16 @@ class FirebaseDataSource(
             updateMap["breakStartedAt"] = System.currentTimeMillis()
         }
         firestore.collection("doctors").document(doctorId).update(updateMap).await()
+    }
+
+    suspend fun updateDoctorShift(doctorId: String, shiftStartTime: String, shiftEndTime: String) {
+        firestore.collection("doctors").document(doctorId).update(
+            mapOf(
+                "shiftStartTime" to shiftStartTime,
+                "shiftEndTime" to shiftEndTime,
+                "updatedAt" to System.currentTimeMillis()
+            )
+        ).await()
     }
 
     suspend fun deleteDoctor(doctorId: String) {

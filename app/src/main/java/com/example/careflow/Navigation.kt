@@ -258,7 +258,7 @@ fun MainNavigation(
                                     }
                                 is PatientScreenDestination.Booking -> {
                                     DoctorBookingScreen(
-                                        doctor = destination.doctor,
+                                        doctor = patientState.selectedDoctor ?: destination.doctor,
                                         uiState = patientState,
                                         onSelectDate = { date ->
                                             patientViewModel.selectBookingDate(date)
@@ -383,6 +383,9 @@ fun MainNavigation(
                             adminViewModel.updateAdminAndHospitalProfile(
                                 adminName, adminEmail, adminPhone, hospName, opd, addr, city, phone
                             )
+                        },
+                        onUpdateDoctorShift = { docId, docName, start, end ->
+                            adminViewModel.updateDoctorShift(docId, docName, start, end)
                         }
                     )
                 }

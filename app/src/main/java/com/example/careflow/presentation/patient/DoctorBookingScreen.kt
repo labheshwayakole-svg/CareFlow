@@ -100,6 +100,7 @@ fun DoctorBookingScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val currentDoctor = uiState.selectedDoctor ?: doctor
     val effectiveSelectedDate = uiState.selectedBookingDate
     val days = if (uiState.availableBookingDates.isNotEmpty()) {
         uiState.availableBookingDates
@@ -110,8 +111,8 @@ fun DoctorBookingScreen(
     val slots = if (uiState.availableTimeSlots.isNotEmpty()) {
         uiState.availableTimeSlots
     } else {
-        remember(doctor, effectiveSelectedDate) {
-            BookingTimeUtils.generateDoctorSlots(doctor, uiState.selectedDoctorAppointments, effectiveSelectedDate)
+        remember(currentDoctor, effectiveSelectedDate) {
+            BookingTimeUtils.generateDoctorSlots(currentDoctor, uiState.selectedDoctorAppointments, effectiveSelectedDate)
         }
     }
 
@@ -311,7 +312,7 @@ fun DoctorBookingScreen(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = BookingTimeUtils.formatDisplayShift(doctor.shiftStartTime, doctor.shiftEndTime),
+                            text = BookingTimeUtils.formatDisplayShift(currentDoctor.shiftStartTime, currentDoctor.shiftEndTime),
                             style = MaterialTheme.typography.bodySmall,
                             color = CareTextSecondary
                         )
@@ -556,7 +557,7 @@ fun DoctorBookingScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "OPD Timings: ${BookingTimeUtils.formatDisplayShift(doctor.shiftStartTime, doctor.shiftEndTime)}",
+                                text = "OPD Timings: ${BookingTimeUtils.formatDisplayShift(currentDoctor.shiftStartTime, currentDoctor.shiftEndTime)}",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = CareTextPrimary
@@ -573,6 +574,41 @@ fun DoctorBookingScreen(
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                             )
+                        }
+                    }
+
+                    val todayDateStr = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date()) }
+                    val isShiftEndedToday = effectiveSelectedDate == todayDateStr && (
+                        (slots.isNotEmpty() && slots.all { it.isPassed }) ||
+                        BookingTimeUtils.hasShiftEndedForToday(currentDoctor.shiftStartTime, currentDoctor.shiftEndTime)
+                    )
+
+                    if (isShiftEndedToday) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFFFEF2F2),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFECACA)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = null,
+                                    tint = Color(0xFFDC2626),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    text = "Doctor's OPD shift has concluded for today (${BookingTimeUtils.formatDisplayShift(currentDoctor.shiftStartTime, currentDoctor.shiftEndTime)}). Please select Tomorrow or an upcoming date to book a slot.",
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFF991B1B)
+                                )
+                            }
                         }
                     }
 
@@ -974,9 +1010,16 @@ fun DoctorBookingScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             // Confirm Booking Button
-            val canBook = !uiState.isLoading && doctor.isAvailable && availableSlotsCount > 0 && selectedSlot.isNotBlank()
+            val todayDateStr = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date()) }
+            val isShiftEndedToday = effectiveSelectedDate == todayDateStr && (
+                (slots.isNotEmpty() && slots.all { it.isPassed }) ||
+                BookingTimeUtils.hasShiftEndedForToday(currentDoctor.shiftStartTime, currentDoctor.shiftEndTime)
+            )
+            val canBook = !uiState.isLoading && currentDoctor.isAvailable && !isShiftEndedToday && availableSlotsCount > 0 && selectedSlot.isNotBlank()
             CarePulseButton(
-                text = if (availableSlotsCount == 0 && totalSlotsCount > 0) {
+                text = if (isShiftEndedToday) {
+                    "Today's Shift Concluded • Pick Next Date"
+                } else if (availableSlotsCount == 0 && totalSlotsCount > 0) {
                     "All Seats Booked for this Date"
                 } else if (selectedSlot.isNotBlank()) {
                     "Confirm $selectedSlot • Get Token #${uiState.nextPredictedToken}"

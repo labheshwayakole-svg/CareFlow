@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -364,10 +365,32 @@ fun DoctorDashboardScreen(
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    LiveStatusPill(
-                                        label = if (doctor.isInOPD && !doctor.isOnBreak) "In OPD" else if (doctor.isOnBreak) "On Break" else "Offline",
-                                        isLive = doctor.isInOPD && !doctor.isOnBreak
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        LiveStatusPill(
+                                            label = if (doctor.isInOPD && !doctor.isOnBreak) "In OPD" else if (doctor.isOnBreak) "On Break" else "Offline",
+                                            isLive = doctor.isInOPD && !doctor.isOnBreak
+                                        )
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Schedule,
+                                                contentDescription = null,
+                                                tint = CareTextSecondary,
+                                                modifier = Modifier.size(13.dp)
+                                            )
+                                            Text(
+                                                text = com.example.careflow.domain.util.BookingTimeUtils.formatDisplayShift(doctor.shiftStartTime, doctor.shiftEndTime),
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = CareTextSecondary
+                                            )
+                                        }
+                                    }
                                 }
                             }
 

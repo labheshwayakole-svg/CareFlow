@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CareFlow — Technical Project Manual</title>
+<style>
+  @page {
+    size: A4;
+    margin: 12mm 14mm 14mm 14mm;
+    @bottom-right {
+      content: counter(page) " / " counter(pages);
+      font-size: 8.5px;
+      font-weight: 600;
+      color: #64748b;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    @bottom-left {
+      content: "CareFlow Android Platform • Technical Project Manual • Lead Developer: Labhesh Wayakole";
+      font-size: 8px;
+      color: #94a3b8;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #0f172a;
+    background: #ffffff;
+    font-size: 11px;
+    line-height: 1.48;
+    padding: 0;
+  }
+
+  .header-card {
+    background: linear-gradient(135deg, #003643 0%, #004D61 45%, #006684 80%, #00829B 100%);
+    color: #ffffff;
+    padding: 18px 22px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 12px rgba(0, 102, 132, 0.15);
+  }
+
+  .header-card .badge {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.22);
+    color: #ffffff;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    margin-bottom: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+  }
+
+  .header-card h1 {
+    font-size: 21px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+    margin-bottom: 2px;
+  }
+
+  .header-card p.subtitle {
+    font-size: 11.5px;
+    color: #e0f2fe;
+    font-weight: 400;
+    margin-bottom: 8px;
+  }
+
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.22);
+    font-size: 10px;
+  }
+
+  .meta-item strong {
+    display: block;
+    color: #bae6fd;
+    font-size: 8.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 1px;
+  }
+
+  .meta-item span.author-name {
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 11.5px;
+    letter-spacing: 0.2px;
+  }
+
+  h2 {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: #004D61;
+    border-bottom: 1.5px solid #e2e8f0;
+    padding-bottom: 3px;
+    margin: 12px 0 6px 0;
+    page-break-after: avoid;
+    break-after: avoid;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  p { margin-bottom: 6px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 6px 0;
+    font-size: 10px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  th, td {
+    padding: 5px 7px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  th {
+    background: #f0fdfa;
+    color: #004D61;
+    font-weight: 700;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    border-top: 1px solid #cbd5e1;
+  }
+
+  tr:nth-child(even) td {
+    background: #f8fafc;
+  }
+
+  .card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .pill {
+    display: inline-block;
+    padding: 1.5px 6px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 700;
+    background: #e0f2fe;
+    color: #0284c7;
+    margin-right: 3px;
+  }
+
+  .pill-green {
+    background: #dcfce7;
+    color: #15803d;
+  }
+
+  .pill-amber {
+    background: #fef3c7;
+    color: #b45309;
+  }
+
+  pre {
+    background: #0f172a;
+    color: #f8fafc;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 9.5px;
+    overflow-x: auto;
+    font-family: Consolas, "Liberation Mono", Menlo, Courier, monospace;
+    margin: 5px 0;
+    line-height: 1.4;
+  }
+
+  .clean-break { page-break-before: always; break-before: page; }
+</style>
+</head>
+<body>
+
+  <!-- ==================== PAGE 1 ==================== -->
+  <div class="header-card">
+    <div class="badge">Official Technical Documentation • Enterprise Edition</div>
+    <h1>CareFlow — Technical Project Manual</h1>
+    <p class="subtitle">Smart Hospital OPD & Live Queue Management System • Android Architecture Specification</p>
+    <div class="meta-grid">
+      <div class="meta-item">
+        <strong>Author & Lead Developer</strong>
+        <span class="author-name">Labhesh Wayakole</span>
+      </div>
+      <div class="meta-item">
+        <strong>Target Platform</strong>
+        Android SDK 36 (Android 14+)
+      </div>
+      <div class="meta-item">
+        <strong>Cloud Infrastructure</strong>
+        Google Cloud Firestore & Auth
+      </div>
+      <div class="meta-item">
+        <strong>Package Namespace</strong>
+        <code>com.example.careflow</code>
+      </div>
+    </div>
+  </div>
+
+  <h2>1. Executive Summary & Healthcare Problem Definition</h2>
+  <p>In modern multi-specialty hospitals and medical outpatient departments (OPDs), physical waiting lines and chaotic waiting rooms cause significant patient distress, unmonitored infection risks, and physician schedule unpredictability. Patients often wait 2 to 4 hours with no visibility into their consultation sequence, leading to crowded lobbies and high missed-turn rates.</p>
+  <p><strong>CareFlow</strong> is an enterprise-grade native Android healthcare application engineered to transform outpatient hospital throughput. It replaces physical queues with <strong>Real-Time Digital Token Passes</strong>, <strong>Dynamic Wait-Time Estimation Telemetry</strong>, <strong>One-Tap Doctor Summoning with High-Urgency Audio-Visual Call Alerts</strong>, and a centralized <strong>Hospital Command Center</strong> for multi-department operations.</p>
+
+  <h2>2. Portal Architecture & System Capabilities</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 18%;">Portal</th>
+        <th style="width: 28%;">Primary Users</th>
+        <th style="width: 54%;">Key Architectural Capabilities</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Patient Portal</strong></td>
+        <td>Patients, Family Attendants</td>
+        <td>Hospital selection (CareFlow, Apollo, Max, Fortis, Manipal), specialty department discovery, doctor profiles with live OPD presence, 1-tap zero-friction token generation, live queue tracker with dynamic countdown, full-screen audio-visual call alerts.</td>
+      </tr>
+      <tr>
+        <td><strong>Doctor Portal</strong></td>
+        <td>Physicians, Specialists</td>
+        <td>Chamber queue director, active token counter, patient consultation status transitions (<code>PENDING</code> ➔ <code>CALLED</code> ➔ <code>IN_CONSULTATION</code> ➔ <code>COMPLETED</code> / <code>SKIPPED</code>), digital clinical notes and prescription generator, presence and break-mode toggle.</td>
+      </tr>
+      <tr>
+        <td><strong>Admin Portal</strong></td>
+        <td>Medical Directors, Administrators</td>
+        <td>Hospital profile and OPD concourse configuration, staff onboarding with auto-generated secure doctor credentials (Doctor ID, email, password), department architecture manager, doctor password reset approval, live OPD telemetry.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3. Technical Stack & Clean Architecture Specification</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 22%;">Layer</th>
+        <th style="width: 28%;">Technology</th>
+        <th style="width: 50%;">Architectural Responsibility & Justification</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>UI Toolkit</strong></td>
+        <td>Jetpack Compose (Material 3)</td>
+        <td>100% declarative UI with zero XML layouts; state hoisting; accessible contrast palettes; GPU-accelerated compositing.</td>
+      </tr>
+      <tr>
+        <td><strong>Asynchronous Core</strong></td>
+        <td>Kotlin Coroutines & Flow</td>
+        <td>Non-blocking reactive data streams (<code>StateFlow</code>, <code>callbackFlow</code>); background I/O execution on <code>Dispatchers.IO</code>.</td>
+      </tr>
+      <tr>
+        <td><strong>Architecture</strong></td>
+        <td>Clean Architecture + MVVM</td>
+        <td>Unidirectional Data Flow (UDF); strict separation between Presentation, Domain, and Data tiers; <code>ServiceLocator</code> DI.</td>
+      </tr>
+      <tr>
+        <td><strong>Cloud Database</strong></td>
+        <td>Cloud Firestore NoSQL</td>
+        <td>Real-time bi-directional WebSocket streams (<code>addSnapshotListener</code>); sub-50ms synchronization across patient and doctor screens.</td>
+      </tr>
+      <tr>
+        <td><strong>Cloud Auth</strong></td>
+        <td>Firebase Authentication</td>
+        <td>Email/Password, Google 1-Tap Sign-In, Phone OTP verification with secure role binding and token lifecycle.</td>
+      </tr>
+      <tr>
+        <td><strong>Local Persistence</strong></td>
+        <td>Encrypted SharedPreferences</td>
+        <td>Role-aware session persistence (<code>UserSessionManager</code>) with multi-role state isolation and instant app boot.</td>
+      </tr>
+      <tr>
+        <td><strong>Resilience Engine</strong></td>
+        <td>Dual-Engine InMemory Store</td>
+        <td>High-fidelity local fallback data store (<code>CareFlowSeedData</code>) ensuring 100% offline functionality without blank screens.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ==================== PAGE 2 ==================== -->
+  <div class="clean-break"></div>
+
+  <h2>4. Cloud Firestore Database Schema</h2>
+  <div class="card">
+    <p><strong>1. <code>/hospitals/{hospitalId}</code> (Healthcare Institutions)</strong><br>
+    Stores hospital master records: <code>id</code>, <code>name</code>, <code>opdName</code>, <code>address</code>, <code>city</code>, <code>phone</code>, <code>email</code>, <code>adminId</code>, <code>adminEmail</code> (single-admin authority), <code>adminName</code>, <code>adminPhone</code>, <code>departmentIds[]</code>, <code>createdAt</code>, <code>updatedAt</code>.</p>
+  </div>
+  <div class="card">
+    <p><strong>2. <code>/doctors/{doctorId}</code> (Physicians & Specialists)</strong><br>
+    Stores credentialed clinicians: <code>id</code>, <code>userId</code>, <code>name</code>, <code>specialization</code>, <code>departmentId</code>, <code>departmentName</code>, <code>hospitalId</code>, <code>qualification</code>, <code>experienceYears</code>, <code>consultationFee</code>, <code>avgConsultationMinutes</code>, <code>shiftStartTime</code>, <code>shiftEndTime</code>, <code>maxTokensPerDay</code>, <code>isAvailable</code>, <code>isInOPD</code>, <code>loginEmail</code>, <code>password</code>.</p>
+  </div>
+  <div class="card">
+    <p><strong>3. <code>/appointments/{appointmentId}</code> (OPD Consultation Bookings)</strong><br>
+    Stores live consultation passes: <code>id</code>, <code>patientId</code>, <code>patientName</code>, <code>patientPhone</code>, <code>doctorId</code>, <code>doctorName</code>, <code>departmentId</code>, <code>departmentName</code>, <code>hospitalId</code>, <code>tokenNumber</code>, <code>date</code>, <code>timeSlot</code>, <code>status</code> (<code>PENDING</code>, <code>CALLED</code>, <code>IN_CONSULTATION</code>, <code>COMPLETED</code>, <code>CANCELLED</code>, <code>ABSENT</code>), <code>notes</code>, <code>symptoms</code>, <code>bookedAt</code>.</p>
+  </div>
+  <div class="card">
+    <p><strong>4. <code>/queues/{doctorId_date}</code> (Daily Live Queue Telemetry)</strong><br>
+    Stores active queue state: <code>doctorId</code>, <code>date</code>, <code>currentToken</code> (currently serving), <code>totalTokens</code>, <code>status</code> (<code>WAITING</code>, <code>ACTIVE</code>, <code>PAUSED</code>, <code>CLOSED</code>), <code>breakMessage</code>, <code>updatedAt</code>.</p>
+  </div>
+  <div class="card">
+    <p><strong>5. <code>/users/{userId}</code> (User Profiles & Role Binding)</strong><br>
+    Stores user accounts: <code>id</code>, <code>name</code>, <code>email</code>, <code>phone</code>, <code>role</code> (<code>PATIENT</code>, <code>DOCTOR</code>, <code>ADMIN</code>), <code>hospitalId</code>, <code>selectedHospitalId</code>, <code>fcmToken</code>, <code>createdAt</code>.</p>
+  </div>
+  <div class="card">
+    <p><strong>6. <code>/doctor_reset_requests/{requestId}</code> (Doctor Security Reset Requests)</strong><br>
+    Stores clinician self-service password reset requests: <code>id</code>, <code>doctorId</code>, <code>doctorName</code>, <code>doctorEmail</code>, <code>hospitalId</code>, <code>otp</code>, <code>status</code> (<code>PENDING</code>, <code>VERIFIED</code>, <code>DISMISSED</code>), <code>requestedAt</code>, <code>expiresAt</code>.</p>
+  </div>
+
+  <h2>5. Multi-Role Profile Isolation & Single-Admin Invalidation Architecture</h2>
+  <p>CareFlow incorporates two enterprise-grade security protocols addressing complex healthcare access patterns:</p>
+  <div class="card" style="border-left: 3px solid #006684;">
+    <p><strong>Protocol A: Multi-Role Account Isolation Under One Email</strong><br>
+    A healthcare worker can simultaneously be a hospital administrator, a consulting doctor, and a patient under the exact same email address (e.g. <code>doctor@hospital.com</code>). CareFlow guarantees strict isolation by qualifying accounts via composite tuple keys <code>(email, portalRole)</code>. Logging into the Patient Portal creates/binds a dedicated Patient profile (<code>patient_...</code>) with appointments and medical history; logging into Doctor Portal binds the clinician chamber; logging into Admin Portal verifies administrative authority. Sessions and data are completely segregated with zero cross-contamination.</p>
+  </div>
+  <div class="card" style="border-left: 3px solid #006684;">
+    <p><strong>Protocol B: Strict Single-Admin Invalidation Engine</strong><br>
+    To prevent orphaned administrative access, each hospital designates exactly one authoritative <code>adminEmail</code> on the hospital record. When the administrator updates their email in Admin Settings: (1) <code>hospitals/{id}.adminEmail</code> is atomically updated, (2) all previous admin user documents in Cloud Firestore are immediately downgraded from <code>ADMIN</code> to <code>PATIENT</code>, and (3) any login attempt with the previous email into the Admin Portal is immediately rejected with an explicit access-denied error.</p>
+  </div>
+
+  <!-- ==================== PAGE 3 ==================== -->
+  <div class="clean-break"></div>
+
+  <h2>6. Complete Project Directory Structure</h2>
+  <pre>CareFlow/
+├── app/
+│   ├── src/main/java/com/example/careflow/
+│   │   ├── CareFlowApp.kt               # Application entry & notification channel setup
+│   │   ├── MainActivity.kt              # Single-Activity Jetpack Compose host
+│   │   ├── Navigation.kt                # Navigation 3 architecture & role-based routing
+│   │   ├── core/                        # Cross-cutting system modules
+│   │   │   ├── di/ServiceLocator.kt     # Singleton dependency container
+│   │   │   ├── dispatcher/              # Coroutine Dispatcher providers
+│   │   │   ├── notification/            # CallNotificationService & Audio-Visual overlay
+│   │   │   └── result/Resource.kt       # Sealed Resource&lt;T&gt; (Success, Error, Loading)
+│   │   ├── domain/                      # Pure business logic & interfaces (zero Android SDK)
+│   │   │   ├── model/                   # Hospital, Doctor, Appointment, DailyQueue, User
+│   │   │   ├── repository/              # AuthRepository, AppointmentRepository, DoctorRepo...
+│   │   │   ├── usecase/                 # BookAppointment, AdvanceQueue, CalculateWaitTime...
+│   │   │   └── util/                    # BookingTimeUtils (time slot generators)
+│   │   ├── data/                        # Concrete implementations & data sources
+│   │   │   ├── datasource/              # InMemoryDataStore & CareFlowSeedData fallback
+│   │   │   ├── firebase/                # FirebaseDataSource (Auth & Firestore integration)
+│   │   │   ├── local/                   # UserSessionManager (SharedPreferences cache)
+│   │   │   └── repository/              # Repository implementations
+│   │   ├── presentation/                # Material 3 UI screens & ViewModels
+│   │   │   ├── admin/                   # AdminDashboardScreen & AdminViewModel
+│   │   │   ├── auth/                    # Multi-portal AuthScreen & AuthViewModel
+│   │   │   ├── doctor/                  # DoctorDashboardScreen & DoctorViewModel
+│   │   │   ├── patient/                 # DoctorBookingScreen, QueueTrackerScreen, Overlays
+│   │   │   └── components/              # Common badges, status cards, action buttons
+│   │   └── theme/                       # Color palettes, Typography, Theme definition
+│   ├── res/raw/queue_call_alert.wav     # High-urgency audio chime for doctor calls
+│   └── build.gradle.kts                 # Android SDK 36, Compose BOM, Firebase dependencies
+├── firestore.rules                      # Declarative Cloud Firestore Security Rules v2
+├── README.md                            # Comprehensive GitHub documentation
+└── CareFlow_Project_Manual.pdf          # Official Technical Project Manual (This Document)</pre>
+
+  <h2>7. Operations, Build & Testing Verification</h2>
+  <div class="card">
+    <p><strong>1. Compiling and Packaging the Production APK:</strong></p>
+    <pre># Check Kotlin compilation across all layers
+./gradlew compileDebugKotlin
+
+# Assemble the complete debug APK
+./gradlew assembleDebug
+
+# Output APK path:
+app/build/outputs/apk/debug/app-debug.apk</pre>
+  </div>
+  <div class="card">
+    <p><strong>2. Automated Architecture & Unit Verification:</strong></p>
+    <pre># Run domain, usecase, and data repository unit test suite
+./gradlew testDebugUnitTest
+
+# Validate Cloud Firestore security rules locally via Firebase CLI Emulator
+firebase emulators:start --only firestore</pre>
+  </div>
+
+  <div style="text-align: center; margin-top: 14px; padding-top: 8px; border-top: 1px solid #cbd5e1; font-size: 9.5px; color: #64748b;">
+    <strong>CareFlow</strong> — Smart Hospital OPD & Live Queue Management System • Lead Developer: <strong>Labhesh Wayakole</strong>
+  </div>
+
+</body>
+</html>

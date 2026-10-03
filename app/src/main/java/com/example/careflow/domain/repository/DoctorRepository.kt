@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.Flow
 interface DoctorRepository {
     fun observeDepartments(hospitalId: String? = null): Flow<List<Department>>
     fun observeDoctors(hospitalId: String? = null, departmentId: String? = null, query: String? = null): Flow<List<Doctor>>
+    fun observeDoctorById(doctorId: String): Flow<Doctor?>
+    fun observeDoctorByUserId(userId: String): Flow<Doctor?>
     suspend fun getDoctorById(doctorId: String): Resource<Doctor>
     suspend fun getDoctorByUserId(userId: String): Resource<Doctor>
     suspend fun addDoctor(doctor: Doctor): Resource<Doctor>
@@ -15,5 +17,6 @@ interface DoctorRepository {
     suspend fun updateDoctorAvailability(doctorId: String, isAvailable: Boolean): Resource<Unit>
     suspend fun updateDoctorOpdStatus(doctorId: String, isInOPD: Boolean): Resource<Unit>
     suspend fun updateDoctorBreakStatus(doctorId: String, isOnBreak: Boolean): Resource<Unit>
+    suspend fun updateDoctorShift(doctorId: String, shiftStartTime: String, shiftEndTime: String): Resource<Unit>
     suspend fun addDepartment(department: Department): Resource<Department>
 }

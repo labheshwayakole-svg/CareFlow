@@ -34,6 +34,7 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
@@ -141,6 +142,7 @@ fun AdminDashboardScreen(
     onRemoveDoctor: (String) -> Unit = {},
     onUpdateAdminEmail: (String) -> Unit = {},
     onUpdateAdminAndHospitalProfile: (String, String, String, String, String, String, String, String) -> Unit = { _, _, _, _, _, _, _, _ -> },
+    onUpdateDoctorShift: (String, String, String, String) -> Unit = { _, _, _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -150,6 +152,7 @@ fun AdminDashboardScreen(
     var showEditHospitalDialog by remember { mutableStateOf(false) }
     var showAdminEmailDialog by remember { mutableStateOf(false) }
     var showAddDoctorDialog by remember { mutableStateOf(false) }
+    var doctorToEditShift by remember { mutableStateOf<Doctor?>(null) }
     var showAddDeptDialog by remember { mutableStateOf(false) }
     var showLogoutConfirmDialog by remember { mutableStateOf(false) }
 
@@ -360,7 +363,8 @@ fun AdminDashboardScreen(
                         doctors = uiState.doctors,
                         activeQueues = uiState.activeQueues,
                         onToggleDoctorAvailability = onToggleDoctorAvailability,
-                        onRemoveDoctor = onRemoveDoctor
+                        onRemoveDoctor = onRemoveDoctor,
+                        onEditShift = { doctorToEditShift = it }
                     )
                     2 -> DepartmentsTab(
                         departments = uiState.departments,
@@ -379,6 +383,17 @@ fun AdminDashboardScreen(
     // --- DIALOGS ---
 
     // 1. Credentials Dialog (After Doctor Creation)
+    doctorToEditShift?.let { doc ->
+        EditDoctorShiftDialog(
+            doctor = doc,
+            onDismiss = { doctorToEditShift = null },
+            onSaveShift = { newStart, newEnd ->
+                onUpdateDoctorShift(doc.id, doc.name, newStart, newEnd)
+                doctorToEditShift = null
+            }
+        )
+    }
+
     uiState.generatedCredentials?.let { creds ->
         AlertDialog(
             onDismissRequest = onDismissCredentials,
@@ -1203,27 +1218,15 @@ fun AdminDashboardScreen(
                             )
                         }
 
-                        // 6. Shift Times
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            OutlinedTextField(
-                                value = shiftStart,
-                                onValueChange = { shiftStart = it },
-                                label = { Text("Shift Start") },
-                                placeholder = { Text("09:00 AM") },
-                                modifier = Modifier.weight(1f),
-                                singleLine = true,
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                            OutlinedTextField(
-                                value = shiftEnd,
-                                onValueChange = { shiftEnd = it },
-                                label = { Text("Shift End") },
-                                placeholder = { Text("02:00 PM") },
-                                modifier = Modifier.weight(1f),
-                                singleLine = true,
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                        }
+                        // 6. Interactive Shift Time Picker with Templates & Number Scroll
+                        com.example.careflow.presentation.components.ShiftTimePickerSection(
+                            initialStartTime = shiftStart,
+                            initialEndTime = shiftEnd,
+                            onShiftChange = { s, e ->
+                                shiftStart = s
+                                shiftEnd = e
+                            }
+                        )
                     }
 
                     HorizontalDivider(color = CardBorderSubtle)
@@ -2047,7 +2050,8 @@ private fun DoctorsTab(
     doctors: List<Doctor>,
     activeQueues: List<DailyQueue>,
     onToggleDoctorAvailability: (String, Boolean) -> Unit,
-    onRemoveDoctor: (String) -> Unit
+    onRemoveDoctor: (String) -> Unit,
+    onEditShift: (Doctor) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -2086,7 +2090,8 @@ private fun DoctorsTab(
                     doctor = doctor,
                     queue = queue,
                     onToggleAvailability = { onToggleDoctorAvailability(doctor.id, doctor.isAvailable) },
-                    onRemoveDoctor = { onRemoveDoctor(doctor.id) }
+                    onRemoveDoctor = { onRemoveDoctor(doctor.id) },
+                    onEditShift = { onEditShift(doctor) }
                 )
             }
         }
@@ -2098,7 +2103,8 @@ private fun DoctorAdminCard(
     doctor: Doctor,
     queue: DailyQueue?,
     onToggleAvailability: () -> Unit,
-    onRemoveDoctor: () -> Unit
+    onRemoveDoctor: () -> Unit,
+    onEditShift: () -> Unit
 ) {
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
@@ -2254,10 +2260,11 @@ private fun DoctorAdminCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "🕒 Shift: ${doctor.shiftStartTime} - ${doctor.shiftEndTime}",
+                        text = "🕒 Shift: ${com.example.careflow.domain.util.BookingTimeUtils.formatDisplayShift(doctor.shiftStartTime, doctor.shiftEndTime)}",
                         style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
                         color = CareTextSecondary
                     )
                     Text(
@@ -2271,6 +2278,32 @@ private fun DoctorAdminCard(
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = QueueServingCyan
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = CarePrimary.copy(alpha = 0.1f),
+                    border = BorderStroke(1.dp, CarePrimary.copy(alpha = 0.3f)),
+                    modifier = Modifier.clickable { onEditShift() }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = "Edit Shift",
+                            tint = CarePrimary,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Text(
+                            text = "Edit Shift",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = CarePrimary
                         )
                     }
                 }
@@ -2327,6 +2360,138 @@ private fun DoctorAdminCard(
                             maxLines = 1,
                             softWrap = false
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EditDoctorShiftDialog(
+    doctor: Doctor,
+    onDismiss: () -> Unit,
+    onSaveShift: (startTime: String, endTime: String) -> Unit
+) {
+    var startShift by remember { mutableStateOf(doctor.shiftStartTime) }
+    var endShift by remember { mutableStateOf(doctor.shiftEndTime) }
+    val dialogScrollState = rememberScrollState()
+
+    val durationMins = com.example.careflow.domain.util.BookingTimeUtils.calculateShiftDurationMinutes(startShift, endShift)
+    val isShiftValid = durationMins > 0
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .imePadding(),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth(0.94f)
+                    .fillMaxHeight(0.90f),
+                shape = RoundedCornerShape(24.dp),
+                color = CareSurface,
+                tonalElevation = 6.dp,
+                shadowElevation = 16.dp
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    // Pinned Header Row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Edit Doctor Shift Timings",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = CareTextPrimary
+                            )
+                            Text(
+                                text = "${doctor.name} • ${doctor.specialization}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = CarePrimary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        IconButton(onClick = onDismiss) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = CareTextSecondary)
+                        }
+                    }
+
+                    HorizontalDivider(color = CardBorderSubtle)
+
+                    // Scrollable Shift Selector Body
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .verticalScroll(dialogScrollState)
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        com.example.careflow.presentation.components.ShiftTimePickerSection(
+                            initialStartTime = startShift,
+                            initialEndTime = endShift,
+                            onShiftChange = { s, e ->
+                                startShift = s
+                                endShift = e
+                            }
+                        )
+                    }
+
+                    HorizontalDivider(color = CardBorderSubtle)
+
+                    // Pinned Footer Bar (ALWAYS visible at the bottom)
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = CareSurface
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(
+                                onClick = onDismiss,
+                                modifier = Modifier.height(48.dp)
+                            ) {
+                                Text("Cancel", color = CareTextSecondary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            }
+                            Button(
+                                onClick = { onSaveShift(startShift, endShift) },
+                                enabled = isShiftValid,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = CarePrimary,
+                                    disabledContainerColor = Color(0xFFCBD5E1)
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .height(48.dp)
+                                    .weight(1f)
+                                    .padding(start = 16.dp)
+                            ) {
+                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (isShiftValid) "Save Shift" else "Invalid Timing",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp
+                                )
+                            }
+                        }
                     }
                 }
             }

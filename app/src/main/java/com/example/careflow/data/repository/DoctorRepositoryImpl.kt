@@ -8,8 +8,11 @@ import com.example.careflow.data.firebase.FirebaseDataSource
 import com.example.careflow.domain.model.Department
 import com.example.careflow.domain.model.Doctor
 import com.example.careflow.domain.repository.DoctorRepository
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class DoctorRepositoryImpl(
@@ -45,9 +48,9 @@ class DoctorRepositoryImpl(
         hospitalId: String?,
         departmentId: String?,
         query: String?
-    ): Flow<List<Doctor>> = kotlinx.coroutines.flow.flow {
-        fun filterLocal(): List<Doctor> {
-            return dataStore.doctors.value.filter { doc ->
+    ): Flow<List<Doctor>> = kotlinx.coroutines.flow.callbackFlow {
+        fun filter(list: List<Doctor>): List<Doctor> {
+            return list.filter { doc ->
                 val matchesHospital = hospitalId.isNullOrBlank() || doc.hospitalId == hospitalId
                 val matchesDept = departmentId.isNullOrBlank() || doc.departmentId == departmentId
                 val matchesQuery = query.isNullOrBlank() ||
@@ -57,21 +60,89 @@ class DoctorRepositoryImpl(
                 matchesHospital && matchesDept && matchesQuery
             }
         }
-        val local = filterLocal()
-        if (local.isNotEmpty()) emit(local)
-        try {
-            firebaseDataSource.observeDoctors(hospitalId, departmentId, query).collect { fbList ->
-                if (fbList.isNotEmpty()) {
-                    fbList.forEach { dataStore.addDoctor(it) }
-                    emit(fbList)
-                } else if (local.isNotEmpty()) {
-                    emit(local)
-                } else {
-                    emit(emptyList())
-                }
+
+        trySend(filter(dataStore.doctors.value))
+
+        val localJob = launch {
+            dataStore.doctors.collect { docs ->
+                trySend(filter(docs))
             }
-        } catch (_: Exception) {
-            if (local.isNotEmpty()) emit(local)
+        }
+
+        val fbJob = launch {
+            try {
+                firebaseDataSource.observeDoctors(hospitalId, departmentId, query).collect { fbList ->
+                    if (fbList.isNotEmpty()) {
+                        fbList.forEach { dataStore.addDoctor(it) }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        awaitClose {
+            localJob.cancel()
+            fbJob.cancel()
+        }
+    }.flowOn(dispatchers.io)
+
+    override fun observeDoctorById(doctorId: String): Flow<Doctor?> = callbackFlow {
+        val initialDoc = dataStore.doctors.value.find { it.id == doctorId }
+        trySend(initialDoc)
+
+        val localJob = launch {
+            dataStore.doctors.collect { list ->
+                val match = list.find { it.id == doctorId }
+                if (match != null) trySend(match)
+            }
+        }
+
+        val fbJob = launch {
+            try {
+                firebaseDataSource.observeDoctorById(doctorId).collect { doc ->
+                    if (doc != null) {
+                        dataStore.addDoctor(doc)
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        awaitClose {
+            localJob.cancel()
+            fbJob.cancel()
+        }
+    }.flowOn(dispatchers.io)
+
+    override fun observeDoctorByUserId(userId: String): Flow<Doctor?> = callbackFlow {
+        fun findInLocal(list: List<Doctor>): Doctor? {
+            return list.find { it.userId == userId || it.id == userId }
+                ?: dataStore.currentUser.value?.email?.let { curEmail ->
+                    if (curEmail.isNotBlank()) list.find { it.loginEmail.equals(curEmail, ignoreCase = true) } else null
+                }
+        }
+
+        val initialDoc = findInLocal(dataStore.doctors.value)
+        trySend(initialDoc)
+
+        val localJob = launch {
+            dataStore.doctors.collect { list ->
+                val match = findInLocal(list)
+                if (match != null) trySend(match)
+            }
+        }
+
+        val fbJob = launch {
+            try {
+                firebaseDataSource.observeDoctorByUserId(userId).collect { doc ->
+                    if (doc != null) {
+                        dataStore.addDoctor(doc)
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        awaitClose {
+            localJob.cancel()
+            fbJob.cancel()
         }
     }.flowOn(dispatchers.io)
 
@@ -179,6 +250,21 @@ class DoctorRepositoryImpl(
             Resource.Success(Unit)
         } catch (e: Exception) {
             Resource.Error(e.message ?: "Failed to update break status", e)
+        }
+    }
+
+    override suspend fun updateDoctorShift(
+        doctorId: String,
+        shiftStartTime: String,
+        shiftEndTime: String
+    ): Resource<Unit> = withContext(dispatchers.io) {
+        try {
+            firebaseDataSource.updateDoctorShift(doctorId, shiftStartTime, shiftEndTime)
+            dataStore.updateDoctorShift(doctorId, shiftStartTime, shiftEndTime)
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            dataStore.updateDoctorShift(doctorId, shiftStartTime, shiftEndTime)
+            Resource.Success(Unit)
         }
     }
 

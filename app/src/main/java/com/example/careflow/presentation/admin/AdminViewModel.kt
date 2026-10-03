@@ -475,4 +475,34 @@ class AdminViewModel(
             authRepository.dismissDoctorResetRequest(requestId)
         }
     }
+
+    fun updateDoctorShift(doctorId: String, doctorName: String, shiftStartTime: String, shiftEndTime: String) {
+        viewModelScope.launch {
+            _uiState.update { state ->
+                val updatedDocs = state.doctors.map { d ->
+                    if (d.id == doctorId) d.copy(shiftStartTime = shiftStartTime, shiftEndTime = shiftEndTime) else d
+                }
+                state.copy(isLoading = true, doctors = updatedDocs)
+            }
+            when (val res = doctorRepository.updateDoctorShift(doctorId, shiftStartTime, shiftEndTime)) {
+                is Resource.Success -> {
+                    val formatted = com.example.careflow.domain.util.BookingTimeUtils.formatDisplayShift(shiftStartTime, shiftEndTime)
+                    _uiState.update { state ->
+                        val updatedDocs = state.doctors.map { d ->
+                            if (d.id == doctorId) d.copy(shiftStartTime = shiftStartTime, shiftEndTime = shiftEndTime) else d
+                        }
+                        state.copy(
+                            isLoading = false,
+                            doctors = updatedDocs,
+                            successMessage = "Shift updated for $doctorName: $formatted"
+                        )
+                    }
+                }
+                is Resource.Error -> {
+                    _uiState.update { it.copy(isLoading = false, errorMessage = res.message ?: "Failed to update shift") }
+                }
+                is Resource.Loading -> {}
+            }
+        }
+    }
 }

@@ -222,7 +222,15 @@ class PatientViewModel(
                 } else {
                     docs
                 }
-                _uiState.update { it.copy(doctors = filtered) }
+                val currentSelected = _uiState.value.selectedDoctor
+                val updatedSelected = currentSelected?.let { sel -> docs.find { it.id == sel.id } }
+                _uiState.update { it.copy(doctors = filtered, selectedDoctor = updatedSelected ?: it.selectedDoctor) }
+
+                if (currentSelected != null && updatedSelected != null) {
+                    if (currentSelected.shiftStartTime != updatedSelected.shiftStartTime || currentSelected.shiftEndTime != updatedSelected.shiftEndTime) {
+                        observeDoctorAppointments(updatedSelected, _uiState.value.selectedBookingDate)
+                    }
+                }
             }
         }
     }
@@ -399,7 +407,15 @@ class PatientViewModel(
                 } else {
                     docs
                 }
-                _uiState.update { it.copy(doctors = filtered) }
+                val currentSelected = _uiState.value.selectedDoctor
+                val updatedSelected = currentSelected?.let { sel -> docs.find { it.id == sel.id } }
+                _uiState.update { it.copy(doctors = filtered, selectedDoctor = updatedSelected ?: it.selectedDoctor) }
+
+                if (currentSelected != null && updatedSelected != null) {
+                    if (currentSelected.shiftStartTime != updatedSelected.shiftStartTime || currentSelected.shiftEndTime != updatedSelected.shiftEndTime) {
+                        observeDoctorAppointments(updatedSelected, _uiState.value.selectedBookingDate)
+                    }
+                }
             }
         }
     }

@@ -159,6 +159,14 @@ class InMemoryDataStore {
         }
     }
 
+    suspend fun updateDoctorShift(doctorId: String, shiftStartTime: String, shiftEndTime: String) {
+        mutex.withLock {
+            _doctors.value = _doctors.value.map { doc ->
+                if (doc.id == doctorId) doc.copy(shiftStartTime = shiftStartTime, shiftEndTime = shiftEndTime) else doc
+            }
+        }
+    }
+
     suspend fun addDepartment(department: Department) {
         mutex.withLock {
             val list = _departments.value.toMutableList()
